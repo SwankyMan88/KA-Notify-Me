@@ -147,13 +147,13 @@ async function loadMoreNotifications() {
 
 /** Refreshes every room's messages. Returns true if anything new arrived. */
 async function syncChats(selfKaid) {
-  const chats = await store.readOne('chats');
-  if (!chats.length) return false;
+  const snapshot = await store.readOne('chats');
+  if (!snapshot.length) return false;
 
-  let anyNew = false;
-
-  const refreshed = await Promise.all(
-    chats.map(async (chat) => {
+  // All the network work happens outside the lock, so a poll in progress never
+  // blocks a message being sent.
+  const results = await Promise.all(
+    snapshot.map(async (chat) => {
       try {
         // A key that worked before is tried first; the others are the fallback.
         const { messages, keyUsed } = await fetchReplies([
@@ -161,44 +161,97 @@ async function syncChats(selfKaid) {
           chat.roomKey,
           chat.expandKey,
         ]);
-
-        // Nothing came back, but we know we posted -- that is a read problem,
-        // not an empty room, so keep what we have rather than blanking it.
-        if (!messages.length && (chat.messages ?? []).length) {
-          return {
-            ...chat,
-            error:
-              'Cannot read this room back from Khan Academy right now. Messages you send may not appear for a while.',
-          };
-        }
-
-        const unread = countUnread(messages, chat.lastSeenKey, selfKaid);
-        if (unread > (chat.unread ?? 0)) anyNew = true;
-
-        return {
-          ...chat,
-          messages,
-          replyKey: keyUsed ?? chat.replyKey,
-          members: membersFrom(messages, selfKaid),
-          unread,
-          error: null,
-        };
+        return { id: chat.id, messages, keyUsed, error: null };
       } catch (error) {
         // A room whose comment was deleted should not break the others.
-        return { ...chat, error: String(error.message ?? error) };
+        return { id: chat.id, error: String(error.message ?? error) };
       }
     }),
   );
 
-  await store.write({ chats: refreshed });
+  const byId = new Map(results.map((r) => [r.id, r]));
+  let anyNew = false;
+
+  await withChats((current) =>
+    current.map((chat) => {
+      const result = byId.get(chat.id);
+      // A room joined while we were fetching has no result yet; leave it alone.
+      if (!result) return chat;
+      if (result.error) return { ...chat, error: result.error };
+
+      const messages = mergeMessages(result.messages, chat.messages);
+
+      // Nothing came back, but we know there were messages -- that is a read
+      // problem, not an empty room, so keep what we have rather than blanking it.
+      if (!messages.length && (chat.messages ?? []).length) {
+        return {
+          ...chat,
+          error:
+            'Cannot read this room back from Khan Academy right now. Messages you send may not appear for a while.',
+        };
+      }
+
+      const unread = countUnread(messages, chat.lastSeenKey, selfKaid);
+      if (unread > (chat.unread ?? 0)) anyNew = true;
+
+      return {
+        ...chat,
+        messages,
+        replyKey: result.keyUsed ?? chat.replyKey,
+        members: membersFrom(messages, selfKaid),
+        unread,
+        error: null,
+      };
+    }),
+  );
+
   return anyNew;
 }
 
-async function withChats(update) {
-  const chats = await store.readOne('chats');
-  const next = await update(chats);
-  await store.write({ chats: next });
-  return next;
+/**
+ * Every change to `chats` is a read-modify-write, and several of them can be
+ * in flight at once: a poll finishing, a message being sent, a room being
+ * renamed. Unserialised, the slowest one wins and silently discards the others
+ * -- which is how a sent message could vanish. This queues them instead.
+ */
+let chatQueue = Promise.resolve();
+
+function withChats(update) {
+  const run = chatQueue.then(async () => {
+    const chats = await store.readOne('chats');
+    const next = await update(chats);
+    await store.write({ chats: next });
+    return next;
+  });
+
+  // One failed link must not break the chain for everything queued behind it.
+  chatQueue = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}
+
+/** How long to keep showing a sent message Khan Academy has not echoed back. */
+const PENDING_GRACE_MS = 120_000;
+
+/**
+ * Khan Academy does not always return a reply on the very next read, so a
+ * just-sent message is kept until the server catches up rather than being
+ * wiped by the poll that lands in between.
+ */
+function mergeMessages(fetched, current, now = Date.now()) {
+  const arrived = new Set(fetched.map((m) => m.key));
+
+  const stillPending = (current ?? []).filter(
+    (m) => m.pending && !arrived.has(m.key) && now - (m.postedAt ?? 0) < PENDING_GRACE_MS,
+  );
+
+  if (!stillPending.length) return fetched;
+
+  return [...fetched, ...stillPending].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
 }
 
 async function createChat(programInput, { shareCode = false, name = '' } = {}) {
@@ -318,6 +371,9 @@ async function sendChatMessage(id, text) {
     expandKey: created.expandKey ?? null,
     content: created.content ?? text,
     date: created.date ?? new Date().toISOString(),
+    // Marks it as ours-but-not-yet-echoed, so a poll cannot wipe it.
+    pending: true,
+    postedAt: Date.now(),
     author: {
       kaid: created.author?.kaid ?? selfKaid,
       nickname: created.author?.nickname ?? 'You',
@@ -333,24 +389,26 @@ async function sendChatMessage(id, text) {
   ]).catch(() => ({ messages: [], keyUsed: null }));
 
   const seen = fetched.some((m) => m.key === posted.key);
-  const messages = seen ? fetched : [...(chat.messages ?? []), posted];
 
   await withChats((current) =>
-    current.map((c) =>
-      c.id === id
-        ? {
-            ...c,
-            messages,
-            replyKey: keyUsed ?? c.replyKey,
-            members: membersFrom(messages, selfKaid),
-            lastSeenKey: messages.at(-1)?.key ?? c.lastSeenKey,
-            unread: 0,
-            error: seen
-              ? null
-              : 'Sent, but Khan Academy did not read it back. It should appear on the program page.',
-          }
-        : c,
-    ),
+    current.map((c) => {
+      if (c.id !== id) return c;
+
+      // Merge against the freshest list, not the snapshot read before posting.
+      const messages = seen
+        ? mergeMessages(fetched, c.messages)
+        : [...(c.messages ?? []).filter((m) => m.key !== posted.key), posted];
+
+      return {
+        ...c,
+        messages,
+        replyKey: keyUsed ?? c.replyKey,
+        members: membersFrom(messages, selfKaid),
+        lastSeenKey: messages.at(-1)?.key ?? c.lastSeenKey,
+        unread: 0,
+        error: null,
+      };
+    }),
   );
 }
 
@@ -572,6 +630,10 @@ async function runSync() {
   const cached = await store.read('profile', 'profileFetchedAt');
   const profileIsStale = Date.now() - (cached.profileFetchedAt ?? 0) > PROFILE_REFRESH_MS;
 
+  // Kicked off now rather than after the notification pages, which could take
+  // several requests -- chat latency was the sum of both.
+  const chatSync = syncChats(cached.profile?.kaid ?? null).catch(() => false);
+
   try {
     [{ notifications, cursor, hasMore }, profile] = await Promise.all([
       collectNotifications(),
@@ -608,7 +670,7 @@ async function runSync() {
     lastError: null,
   });
 
-  const newChatMessages = await syncChats(resolvedProfile?.kaid ?? null).catch(() => false);
+  const newChatMessages = await chatSync;
 
   await paintBadge();
 

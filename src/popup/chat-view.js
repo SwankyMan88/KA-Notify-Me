@@ -262,6 +262,8 @@ async function openRoom(id) {
   closeDrawers();
   await store.write({ activeChatId: id });
   await send({ type: 'kanm:chat-seen', id });
+  // Do not make the room wait up to a whole poll interval to look current.
+  send({ type: 'kanm:chat-refresh' });
 }
 
 function closeRoom() {
