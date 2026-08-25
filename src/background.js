@@ -5,6 +5,8 @@ import {
   MAX_NOTIFICATIONS,
   OFFSCREEN_PATH,
   SESSION_COOKIE,
+  UPDATE_ALARM,
+  UPDATE_CHECK_HOURS,
 } from './lib/constants.js';
 import {
   createRoomComment,
@@ -27,6 +29,7 @@ import {
   parseProgramId,
   roomMarker,
 } from './lib/chat.js';
+import { checkForUpdate } from './lib/update.js';
 import * as store from './lib/storage.js';
 
 /* ------------------------------ offscreen ------------------------------ */
@@ -310,6 +313,27 @@ async function leaveChat(id) {
   await paintBadge();
 }
 
+/* -------------------------------- updates ------------------------------- */
+
+async function runUpdateCheck() {
+  try {
+    const latest = await checkForUpdate();
+    await store.write({
+      updateAvailable: latest,
+      updateCheckedAt: Date.now(),
+      updateError: null,
+    });
+    return { version: latest };
+  } catch (error) {
+    // Being offline is not worth shouting about; keep the last known answer.
+    await store.write({
+      updateCheckedAt: Date.now(),
+      updateError: String(error.message ?? error),
+    });
+    return { version: await store.readOne('updateAvailable') };
+  }
+}
+
 /* ----------------------------- diagnostics ----------------------------- */
 
 /**
@@ -471,14 +495,20 @@ function sync() {
 async function start() {
   await chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
   await chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 1 });
+  await chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_CHECK_HOURS * 60 });
   await ensureOffscreen();
   await sync();
+  runUpdateCheck();
 }
 
 chrome.runtime.onInstalled.addListener(start);
 chrome.runtime.onStartup.addListener(start);
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === UPDATE_ALARM) {
+    runUpdateCheck();
+    return;
+  }
   if (alarm.name !== KEEPALIVE_ALARM) return;
   // Revive the heartbeat first -- the worker may have been asleep for a while.
   ensureOffscreen().then(sync);
@@ -534,6 +564,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:chat-leave':
       return respond(sendResponse, () => leaveChat(message.id));
+
+    case 'kanm:check-update':
+      return respond(sendResponse, () => runUpdateCheck());
+
+    // Reloading re-reads the folder from disk, which is how a pulled update
+    // actually takes effect without visiting chrome://extensions.
+    case 'kanm:reload-extension':
+      chrome.runtime.reload();
+      return false;
 
     case 'kanm:diagnose':
       return respond(sendResponse, () => diagnose(message.program));

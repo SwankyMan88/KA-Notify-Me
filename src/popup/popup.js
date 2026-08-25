@@ -1,3 +1,5 @@
+import { REPO_URL, UPDATE_COMMAND } from '../lib/constants.js';
+import { installedVersion } from '../lib/update.js';
 import * as store from '../lib/storage.js';
 import { send } from './messaging.js';
 import * as chatView from './chat-view.js';
@@ -19,11 +21,21 @@ const ui = {
   panelChat: el('panel-chat'),
   panelNotifications: el('panel-notifications'),
 
+  updateBar: el('update-bar'),
+  updateText: el('update-text'),
+  updateCommand: el('update-command'),
+  updateCopy: el('update-copy'),
+  updateReload: el('update-reload'),
+  updateRepo: el('update-repo'),
+  updateDismiss: el('update-dismiss'),
+
   signedOut: el('signed-out'),
   status: el('status'),
 };
 
 const TAB_KEY = 'kanm:last-tab';
+/** Which version the user has waved away, for this popup session. */
+const DISMISSED_KEY = 'kanm:update-dismissed';
 let activeTab = sessionStorage.getItem(TAB_KEY) ?? 'notifications';
 let latestState = null;
 
@@ -97,6 +109,18 @@ function renderStatus(state) {
     : `Up to date · ${state.chats.length} room${state.chats.length === 1 ? '' : 's'}`;
 }
 
+function renderUpdate(state) {
+  const latest = state.updateAvailable;
+  const dismissed = sessionStorage.getItem(DISMISSED_KEY);
+
+  ui.updateBar.hidden = !latest || latest === dismissed;
+  if (ui.updateBar.hidden) return;
+
+  ui.updateText.textContent = `Version ${latest} is available — you have ${installedVersion()}`;
+  ui.updateCommand.textContent = UPDATE_COMMAND;
+  ui.updateRepo.href = REPO_URL;
+}
+
 /* -------------------------------- render ------------------------------- */
 
 async function render() {
@@ -109,6 +133,7 @@ async function render() {
 
   renderHeader(state);
   renderStatus(state);
+  renderUpdate(state);
 
   const signedOut = state.loaded && !state.signedIn;
   ui.signedOut.hidden = !signedOut;
@@ -139,6 +164,25 @@ ui.soundToggle.addEventListener('click', async () => {
   if (enabled) send({ type: 'kanm:test-sound' });
 });
 
+ui.updateCopy.addEventListener('click', async () => {
+  await navigator.clipboard.writeText(UPDATE_COMMAND);
+  ui.updateCopy.textContent = 'Copied';
+  setTimeout(() => {
+    ui.updateCopy.textContent = 'Copy command';
+  }, 1500);
+});
+
+// Reloading re-reads the folder from disk, so this only helps after a pull.
+ui.updateReload.addEventListener('click', () => {
+  send({ type: 'kanm:reload-extension' });
+  window.close();
+});
+
+ui.updateDismiss.addEventListener('click', async () => {
+  sessionStorage.setItem(DISMISSED_KEY, await store.readOne('updateAvailable'));
+  ui.updateBar.hidden = true;
+});
+
 notificationsView.setup({
   getState: () => latestState ?? store.DEFAULTS,
   onStatus: (message) => {
@@ -158,3 +202,4 @@ chrome.storage.onChanged.addListener(render);
 await chatView.restore();
 await render();
 send({ type: 'kanm:sync' });
+send({ type: 'kanm:check-update' });

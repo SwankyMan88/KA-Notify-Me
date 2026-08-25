@@ -130,6 +130,14 @@ you wouldn't post publicly.**
 
 ## Updating
 
+The extension checks GitHub every few hours and shows a banner in the popup when
+a newer version is available.
+
+It cannot update itself. An extension loaded this way runs straight off the
+folder on your disk, and no extension is allowed to write to that folder or run
+git for you — so the banner gives you the command and a **Reload extension**
+button for afterwards.
+
 Pull the latest version and reload:
 
 ```bash

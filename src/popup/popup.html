@@ -17,6 +17,21 @@
       </button>
     </header>
 
+    <div id="update-bar" class="update" hidden>
+      <div class="update-row">
+        <span id="update-text" class="update-text"></span>
+        <button id="update-dismiss" class="update-x" type="button" title="Hide">×</button>
+      </div>
+      <p class="update-hint">
+        Run <code id="update-command"></code> in the extension folder, then reload.
+      </p>
+      <div class="update-actions">
+        <button id="update-copy" class="update-btn" type="button">Copy command</button>
+        <button id="update-reload" class="update-btn" type="button">Reload extension</button>
+        <a id="update-repo" class="update-btn" href="#" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+    </div>
+
     <nav class="tabs" role="tablist">
       <button id="tab-chat" class="tab" type="button" role="tab" aria-selected="false">
         Chat<span id="chat-dot" class="dot" hidden></span>

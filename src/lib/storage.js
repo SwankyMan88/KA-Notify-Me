@@ -18,6 +18,11 @@ export const DEFAULTS = {
 
   profile: null,
   profileFetchedAt: 0,
+
+  /** Version string when GitHub is ahead of what is installed, else null. */
+  updateAvailable: null,
+  updateCheckedAt: 0,
+  updateError: null,
   /** Remembered state of the "put the code in the comment" toggle. */
   shareCodeInComment: false,
   soundEnabled: true,

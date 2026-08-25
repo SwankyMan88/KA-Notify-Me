@@ -39,3 +39,19 @@ export const BADGE_COLOR = '#6d4aff';
 /** Marks a share code as ours and lets us reject pasted junk early. */
 export const CHAT_CODE_PREFIX = 'KANM1-';
 
+
+/* -------------------------------- updates ------------------------------- */
+
+export const REPO_URL = 'https://github.com/SwankyMan88/KA-Notify-Me';
+
+/** The manifest at the head of the default branch carries the latest version. */
+export const UPDATE_MANIFEST_URL =
+  'https://raw.githubusercontent.com/SwankyMan88/KA-Notify-Me/main/manifest.json';
+
+export const UPDATE_ALARM = 'kanm-update-check';
+
+/** Hours between update checks. GitHub is not going anywhere; six is plenty. */
+export const UPDATE_CHECK_HOURS = 6;
+
+/** The command that actually performs the update, shown in the popup. */
+export const UPDATE_COMMAND = 'git pull';

@@ -59,6 +59,9 @@ const state = {
   announcedKeys: [],
   activeChatId: null,
   shareCodeInComment: false,
+  updateAvailable: '1.1.0',
+  updateCheckedAt: now,
+  updateError: null,
   profileFetchedAt: now,
   profile: { kaid: me, nickname: 'Colin', username: 'colinb', points: 184320, avatarSrc: null },
 
@@ -184,6 +187,7 @@ globalThis.chrome = {
     onChanged: { addListener: (fn) => listeners.push(fn) },
   },
   runtime: {
+    getManifest: () => ({ version: '1.0.0' }),
     sendMessage: async (message) => {
       // Echo a sent chat message back so the composer can be exercised.
       if (message?.type === 'kanm:chat-send') {
