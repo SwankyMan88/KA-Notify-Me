@@ -1,0 +1,781 @@
+:root {
+  --violet: #6d4aff;
+  --violet-soft: rgba(109, 74, 255, 0.14);
+  --bg: #ffffff;
+  --surface: #f5f4fb;
+  --line: #e4e1f2;
+  --text: #1c1830;
+  --muted: #6a6483;
+  --danger: #c0392b;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --violet: #9b82ff;
+    --violet-soft: rgba(155, 130, 255, 0.16);
+    --bg: #15121f;
+    --surface: #1e1a2c;
+    --line: #2c2740;
+    --text: #efecf8;
+    --muted: #9d97b4;
+    --danger: #ff8a7a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Several layout rules below set `display`, which would otherwise beat the
+   `hidden` attribute the popup uses to switch panels. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  width: 382px;
+  height: 560px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ------------------------------- topbar ------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: linear-gradient(135deg, var(--violet) 0%, #4c2fc4 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.2);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.identity {
+  min-width: 0;
+  flex: 1;
+}
+
+.nickname,
+.subtitle {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nickname {
+  font-weight: 650;
+}
+
+.subtitle {
+  font-size: 12px;
+  opacity: 0.82;
+}
+
+.subtitle--dark {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.ghost {
+  border: 0;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ghost:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.ghost[aria-pressed="false"] {
+  opacity: 0.55;
+}
+
+/* -------------------------------- tabs -------------------------------- */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--violet);
+  border-bottom-color: var(--violet);
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--violet);
+  vertical-align: 2px;
+}
+
+/* ------------------------------- panels ------------------------------- */
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ------------------------------ toolbar ------------------------------- */
+
+.toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.tool {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  border-color: var(--violet);
+  background: var(--violet-soft);
+}
+
+.tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* --------------------------- notification list ------------------------ */
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+
+.item:hover {
+  background: var(--surface);
+}
+
+.item--new {
+  background: var(--violet-soft);
+  border-left: 3px solid var(--violet);
+  padding-left: 11px;
+}
+
+.item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.item-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.item-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.item-body {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-time {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sentinel {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ------------------------------ chat home ----------------------------- */
+
+.chat-home {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.action {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.action:hover,
+.action[aria-expanded="true"] {
+  border-color: var(--violet);
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.drawer {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--violet-soft);
+}
+
+.field {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.field--mono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field:focus,
+.composer-input:focus {
+  outline: 2px solid var(--violet);
+  outline-offset: -1px;
+}
+
+.hint {
+  margin: 7px 0 9px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.check input {
+  margin: 1px 0 0;
+  accent-color: var(--violet);
+  flex-shrink: 0;
+}
+
+.check:hover {
+  color: var(--text);
+}
+
+/* Notifications that belong to a room open the room instead of the website. */
+.item--chat .item-title::after {
+  content: "in chat";
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.primary {
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--violet);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.primary--inline {
+  width: auto;
+  flex-shrink: 0;
+  padding: 7px 12px;
+}
+
+.error {
+  margin: 10px 12px 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.error-text {
+  margin: 0 0 6px;
+}
+
+.error-text:last-child {
+  margin-bottom: 0;
+}
+
+.error .link {
+  color: var(--danger);
+  text-decoration: underline;
+}
+
+.report {
+  margin: 8px 12px 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.error--flush {
+  margin: 0;
+  border-radius: 0;
+}
+
+.blank {
+  margin: 0;
+  padding: 26px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ------------------------------ room list ----------------------------- */
+
+.rooms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room:hover {
+  background: var(--surface);
+}
+
+.room-avatars {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.room-avatars img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+  border: 2px solid var(--bg);
+}
+
+.room-avatars img + img {
+  margin-left: -14px;
+}
+
+.room-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.room-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-tag {
+  margin-left: 6px;
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.room-last {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ------------------------------ chat room ----------------------------- */
+
+.chat-room {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.room-head .ghost {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.room-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.room-title .nickname {
+  font-size: 13px;
+}
+
+.room-options {
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--line);
+  background: var(--violet-soft);
+  flex-shrink: 0;
+}
+
+.code-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.code-chip {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.room-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 9px;
+}
+
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--violet);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.link--danger {
+  color: var(--danger);
+}
+
+/* ------------------------------- messages ----------------------------- */
+
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px 10px;
+  list-style: none;
+}
+
+.msg {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+  align-items: flex-end;
+}
+
+/* Extra air before a new speaker, none between one person's run of messages. */
+.msg--lead {
+  margin-top: 10px;
+}
+
+.msg-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.msg-avatar--hidden {
+  visibility: hidden;
+}
+
+.bubble {
+  max-width: 252px;
+  padding: 7px 11px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.msg--lead .bubble {
+  border-bottom-left-radius: 5px;
+}
+
+.msg--self {
+  flex-direction: row-reverse;
+}
+
+.msg--self .bubble {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+  border-bottom-left-radius: 14px;
+}
+
+.msg--self.msg--lead .bubble {
+  border-bottom-right-radius: 5px;
+}
+
+.bubble-who {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--violet);
+}
+
+.bubble-text {
+  margin: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubble-time {
+  margin: 3px 0 0;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.composer {
+  display: flex;
+  gap: 7px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.composer-input {
+  flex: 1;
+  max-height: 96px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  resize: none;
+}
+
+.send {
+  width: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+/* ------------------------------- states ------------------------------- */
+
+.state {
+  padding: 30px 22px;
+  text-align: center;
+}
+
+.state-title {
+  margin: 0 0 5px;
+  font-weight: 650;
+}
+
+.state-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  background: var(--violet);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* ------------------------------ statusbar ----------------------------- */
+
+.statusbar--bad {
+  color: var(--danger);
+}
+
+.statusbar {
+  padding: 6px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}

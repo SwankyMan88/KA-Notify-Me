@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>KA Notify Me</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <img id="avatar" class="avatar" src="../../icons/48.png" alt="" />
+      <div class="identity">
+        <p id="nickname" class="nickname">KA Notify Me</p>
+        <p id="subtitle" class="subtitle">Checking your session…</p>
+      </div>
+      <button id="sound-toggle" class="ghost" type="button" aria-pressed="true">
+        <span id="sound-glyph">🔔</span>
+      </button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button id="tab-chat" class="tab" type="button" role="tab" aria-selected="false">
+        Chat<span id="chat-dot" class="dot" hidden></span>
+      </button>
+      <button id="tab-notifications" class="tab" type="button" role="tab" aria-selected="true">
+        Notifications<span id="notif-dot" class="dot" hidden></span>
+      </button>
+    </nav>
+
+    <!-- ------------------------------ chat ------------------------------ -->
+
+    <section id="panel-chat" class="panel" role="tabpanel" hidden>
+      <div id="chat-home" class="chat-home">
+        <div class="actions">
+          <button id="show-create" class="action" type="button">New room</button>
+          <button id="show-join" class="action" type="button">Join a room</button>
+        </div>
+
+        <form id="create-form" class="drawer" hidden>
+          <input
+            id="program-input"
+            class="field"
+            type="text"
+            placeholder="Link to one of your programs"
+          />
+          <p class="hint">Posts a comment on the program and gives you a code to share.</p>
+
+          <label class="check">
+            <input id="share-code" type="checkbox" />
+            <span>Put the join code in the comment, so anyone reading it can join</span>
+          </label>
+
+          <button id="create-chat" class="primary" type="submit">Create room</button>
+        </form>
+
+        <form id="join-form" class="drawer" hidden>
+          <input id="code-input" class="field field--mono" type="text" placeholder="KA-XXXXXXXX-XXXXXXX" />
+          <p class="hint">Paste the code your buddy sent you.</p>
+          <button id="join-chat" class="primary" type="submit">Join</button>
+        </form>
+
+        <div id="chat-error" class="error" hidden>
+          <p id="chat-error-text" class="error-text"></p>
+          <button id="run-check" class="link" type="button">Run a connection check</button>
+        </div>
+
+        <pre id="chat-report" class="report" hidden></pre>
+
+        <ul id="chat-list" class="rooms"></ul>
+
+        <p id="chat-empty" class="blank" hidden>No rooms yet.</p>
+      </div>
+
+      <div id="chat-room" class="chat-room" hidden>
+        <div class="room-head">
+          <button id="chat-back" class="ghost" type="button" title="Back">←</button>
+          <div class="room-title">
+            <p id="room-name" class="nickname"></p>
+            <p id="room-members" class="subtitle subtitle--dark"></p>
+          </div>
+          <button id="room-menu" class="ghost" type="button" title="Room code and options">⋯</button>
+        </div>
+
+        <div id="room-options" class="room-options" hidden>
+          <div class="code-row">
+            <input id="room-code" class="code-chip" type="text" readonly />
+            <button id="copy-code" class="primary primary--inline" type="button">Copy</button>
+          </div>
+          <div class="room-links">
+            <a id="room-open" class="link" href="#" target="_blank" rel="noreferrer">Open on KA</a>
+            <button id="leave-room" class="link link--danger" type="button">Leave room</button>
+          </div>
+        </div>
+
+        <ul id="messages" class="messages"></ul>
+        <p id="room-error" class="error error--flush" hidden></p>
+
+        <form id="composer" class="composer">
+          <textarea
+            id="composer-input"
+            class="composer-input"
+            rows="1"
+            placeholder="Message"
+          ></textarea>
+          <button id="composer-send" class="send" type="submit" title="Send">➤</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- -------------------------- notifications ------------------------- -->
+
+    <section id="panel-notifications" class="panel" role="tabpanel">
+      <div class="toolbar">
+        <button id="mark-read" class="tool" type="button">Mark all read</button>
+        <button id="refresh" class="tool" type="button">Refresh</button>
+      </div>
+
+      <div id="notif-scroll" class="scroll">
+        <ul id="list" class="list" hidden></ul>
+
+        <div id="sentinel" class="sentinel" hidden>
+          <span id="sentinel-text">Loading more…</span>
+        </div>
+
+        <section id="empty" class="state" hidden>
+          <p class="state-title">You're all caught up</p>
+          <p class="state-text">New notifications show up here within a few seconds.</p>
+        </section>
+
+        <section id="loading" class="state">
+          <p class="state-text">Loading…</p>
+        </section>
+      </div>
+    </section>
+
+    <!-- ---------------------------- signed out -------------------------- -->
+
+    <section id="signed-out" class="state" hidden>
+      <p class="state-title">Not signed in</p>
+      <p class="state-text">
+        Sign in to Khan Academy in this browser and KA Notify Me picks the session up automatically.
+      </p>
+      <a class="cta" href="https://www.khanacademy.org/login" target="_blank" rel="noreferrer"
+        >Sign in to Khan Academy</a
+      >
+    </section>
+
+    <footer class="statusbar">
+      <span id="status">—</span>
+    </footer>
+
+    <script src="preview-stub.js"></script>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
