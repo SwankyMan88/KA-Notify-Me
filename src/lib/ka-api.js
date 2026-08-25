@@ -190,11 +190,34 @@ export async function postReply(roomKey, text) {
   return addFeedback({ parentKey: roomKey, textContent: text, feedbackType: 'REPLY' }, 'message');
 }
 
-/** Every message in a room, oldest first. */
-export async function fetchReplies(roomKey) {
-  const data = await callGraphQL('getFeedbackReplies', { postKey: roomKey });
+async function readReplies(postKey) {
+  const data = await callGraphQL('getFeedbackReplies', { postKey });
   const replies = data?.feedbackReplies ?? [];
   return replies.filter((r) => !r.deleted && !r.appearsAsDeleted).map(toMessage);
+}
+
+/**
+ * Every message in a room, oldest first.
+ *
+ * Khan Academy gives each post two identifiers -- `key` and `expandKey` -- and
+ * which one `feedbackReplies` wants is not something the posting side told us:
+ * replies are posted with `parentKey: key`, but nothing proves the read side
+ * uses the same one. So try each candidate and report which worked, letting the
+ * caller remember it instead of paying for the retry every poll.
+ *
+ * @param candidates ordered keys to try
+ * @returns {{ messages, keyUsed }} keyUsed is null when every candidate was empty
+ */
+export async function fetchReplies(candidates) {
+  const tried = [...new Set([].concat(candidates).filter(Boolean))];
+
+  for (const key of tried) {
+    const messages = await readReplies(key);
+    if (messages.length) return { messages, keyUsed: key };
+  }
+
+  // Genuinely empty and "we asked the wrong way" look identical from here.
+  return { messages: [], keyUsed: null };
 }
 
 const COMMENT_PAGE_SIZE = 50;
@@ -236,6 +259,8 @@ function describeRoomComment(comment) {
   return {
     key: comment.key,
     expandKey: comment.expandKey ?? '',
+    replyCount: comment.replyCount ?? 0,
+    replyExpandKeys: comment.replyExpandKeys ?? [],
     title: comment.focus?.translatedTitle ?? 'Khan Academy program',
     url: comment.permalink ?? comment.focusUrl ?? null,
     owner: toAuthor(comment.author),

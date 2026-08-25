@@ -153,13 +153,30 @@ async function syncChats(selfKaid) {
   const refreshed = await Promise.all(
     chats.map(async (chat) => {
       try {
-        const messages = await fetchReplies(chat.roomKey);
+        // A key that worked before is tried first; the others are the fallback.
+        const { messages, keyUsed } = await fetchReplies([
+          chat.replyKey,
+          chat.roomKey,
+          chat.expandKey,
+        ]);
+
+        // Nothing came back, but we know we posted -- that is a read problem,
+        // not an empty room, so keep what we have rather than blanking it.
+        if (!messages.length && (chat.messages ?? []).length) {
+          return {
+            ...chat,
+            error:
+              'Cannot read this room back from Khan Academy right now. Messages you send may not appear for a while.',
+          };
+        }
+
         const unread = countUnread(messages, chat.lastSeenKey, selfKaid);
         if (unread > (chat.unread ?? 0)) anyNew = true;
 
         return {
           ...chat,
           messages,
+          replyKey: keyUsed ?? chat.replyKey,
           members: membersFrom(messages, selfKaid),
           unread,
           error: null,
@@ -256,13 +273,17 @@ async function adoptRoom(room) {
   }
 
   const selfKaid = (await store.readOne('profile'))?.kaid ?? null;
-  const messages = await fetchReplies(room.roomKey).catch(() => []);
+  const { messages, keyUsed } = await fetchReplies([room.roomKey, room.expandKey]).catch(() => ({
+    messages: [],
+    keyUsed: null,
+  }));
 
   const chat = {
     ...room,
     id,
     code: encodeRoomCode(room),
     messages,
+    replyKey: keyUsed,
     members: membersFrom(messages, selfKaid),
     // Joining an existing room should not arrive with a pile of unread.
     lastSeenKey: messages.at(-1)?.key ?? null,
@@ -281,11 +302,32 @@ async function sendChatMessage(id, text) {
   const chat = chats.find((c) => c.id === id);
   if (!chat) throw new Error('That chat is no longer on this device.');
 
-  await postReply(chat.roomKey, text);
-
-  // Re-read so our own message appears with its real key and timestamp.
-  const messages = await fetchReplies(chat.roomKey);
+  // The mutation hands back the reply it created, so the message can be shown
+  // without depending on the read path working at all.
+  const created = await postReply(chat.roomKey, text);
   const selfKaid = (await store.readOne('profile'))?.kaid ?? null;
+
+  const posted = {
+    key: created.key,
+    expandKey: created.expandKey ?? null,
+    content: created.content ?? text,
+    date: created.date ?? new Date().toISOString(),
+    author: {
+      kaid: created.author?.kaid ?? selfKaid,
+      nickname: created.author?.nickname ?? 'You',
+      avatarSrc: null,
+    },
+  };
+
+  // Read it back if we can; fall back to appending what we just posted.
+  const { messages: fetched, keyUsed } = await fetchReplies([
+    chat.replyKey,
+    chat.roomKey,
+    chat.expandKey,
+  ]).catch(() => ({ messages: [], keyUsed: null }));
+
+  const seen = fetched.some((m) => m.key === posted.key);
+  const messages = seen ? fetched : [...(chat.messages ?? []), posted];
 
   await withChats((current) =>
     current.map((c) =>
@@ -293,10 +335,13 @@ async function sendChatMessage(id, text) {
         ? {
             ...c,
             messages,
+            replyKey: keyUsed ?? c.replyKey,
             members: membersFrom(messages, selfKaid),
             lastSeenKey: messages.at(-1)?.key ?? c.lastSeenKey,
             unread: 0,
-            error: null,
+            error: seen
+              ? null
+              : 'Sent, but Khan Academy did not read it back. It should appear on the program page.',
           }
         : c,
     ),
@@ -399,6 +444,39 @@ async function diagnose(programInput) {
       ? `${source} (after ${failed.map((a) => a.id).join(', ')} failed)`
       : source;
   });
+
+  // Per-room check. The anchor comment reports how many replies Khan Academy
+  // thinks exist, which is the only way to tell "nobody has posted" apart from
+  // "we are reading the thread with the wrong key".
+  const chats = await store.readOne('chats');
+  if (!chats.length) lines.push('--   No rooms on this device to check');
+
+  for (const chat of chats) {
+    await step(`Room ${chat.roomId} (${chat.title})`, async () => {
+      const anchor = await findRoomComment(chat.programId, chat.roomId);
+      if (!anchor) throw new Error('anchor comment not found on the program');
+
+      const attempts = [];
+      for (const [name, key] of [
+        ['key', chat.roomKey],
+        ['expandKey', chat.expandKey],
+      ]) {
+        if (!key) continue;
+        try {
+          const { messages } = await fetchReplies([key]);
+          attempts.push(`${name}->${messages.length}`);
+        } catch {
+          attempts.push(`${name}->error`);
+        }
+      }
+
+      const summary = `KA reports ${anchor.replyCount} replies; read ${attempts.join(', ')}`;
+      if (anchor.replyCount > 0 && attempts.every((a) => a.endsWith('->0'))) {
+        throw new Error(`${summary} — replies exist but neither key reads them`);
+      }
+      return summary;
+    });
+  }
 
   if (!programInput?.trim()) {
     lines.push('--   Program checks skipped (no program link given)');
