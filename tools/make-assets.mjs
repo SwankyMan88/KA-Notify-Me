@@ -153,7 +153,7 @@ const RATE = 44100;
  * plus a quieter octave, under an exponential decay with a short attack -- a
  * cheap approximation of something being struck.
  */
-function renderSound({ notes, duration, decay = 5.2, octave = 0.28, gain = 0.32 }) {
+function renderSound({ notes, duration, decay = 5.2, octave = 0.28, gain = 0.32, attack = 400 }) {
   const frames = Math.floor(RATE * duration);
   const pcm = Buffer.alloc(frames * 2);
 
@@ -164,7 +164,7 @@ function renderSound({ notes, duration, decay = 5.2, octave = 0.28, gain = 0.32 
     for (const { freq, start } of notes) {
       const age = t - start;
       if (age < 0) continue;
-      const envelope = Math.exp(-age * decay) * (1 - Math.exp(-age * 400));
+      const envelope = Math.exp(-age * decay) * (1 - Math.exp(-age * attack));
       sample +=
         envelope *
         (Math.sin(2 * Math.PI * freq * age) + octave * Math.sin(4 * Math.PI * freq * age));
@@ -219,6 +219,49 @@ const SOUNDS = {
     duration: 0.9,
     decay: 7,
     octave: 0.18,
+  },
+
+  /* The soft set. Quieter, no octave harmonic to keep them dull rather than
+     bright, and a slow attack so they fade in instead of clicking. */
+
+  // A single low note that swells and goes.
+  hush: {
+    notes: [{ freq: 329.63, start: 0 }],
+    duration: 1.1,
+    decay: 4,
+    octave: 0,
+    gain: 0.17,
+    attack: 45,
+  },
+
+  // Two soft notes a fifth apart, the gentlest of the set.
+  drift: {
+    notes: [{ freq: 392.0, start: 0 }, { freq: 587.33, start: 0.22 }],
+    duration: 1.3,
+    decay: 3.4,
+    octave: 0.05,
+    gain: 0.15,
+    attack: 30,
+  },
+
+  // Rounded and short, like a fingertip on a glass.
+  droplet: {
+    notes: [{ freq: 698.46, start: 0 }, { freq: 1046.5, start: 0.03 }],
+    duration: 0.7,
+    decay: 8,
+    octave: 0,
+    gain: 0.19,
+    attack: 90,
+  },
+
+  // Very low and very quiet, for when even the soft ones intrude.
+  felt: {
+    notes: [{ freq: 146.83, start: 0 }],
+    duration: 0.8,
+    decay: 6.5,
+    octave: 0.04,
+    gain: 0.24,
+    attack: 60,
   },
 };
 

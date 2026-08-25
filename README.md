@@ -171,12 +171,15 @@ isn't muted, and look under **Settings → Sound**.
 
 ## Settings
 
-The gear in the top-right opens Settings. Every row has a small **i** next to
-it — hover or tab to it and a note explains what that setting does.
+The gear in the top-right opens Settings. Where a setting has a consequence the
+label does not make obvious, there is a small **i** beside it — hover or tab to
+it for an explanation.
 
 - **Appearance** — light, dark, or match your system; five accent colours
-- **Sound** — master switch, four alert sounds, volume, and separate switches
-  for notification sounds and chat sounds
+- **Sound** — master switch, eight alert sounds, volume, and separate switches
+  for notification sounds and chat sounds. Picking a sound plays it. Four of
+  the eight are a deliberately soft set — quieter, duller, and slower to start
+  — for when the default is too sharp
 - **Checking** — how often to poll Khan Academy, from 5 seconds to a minute.
   Slower means fewer requests, which matters if Khan Academy starts refusing
   them

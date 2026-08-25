@@ -168,9 +168,15 @@ ui.tabChat.addEventListener('click', () => selectTab('chat'));
 ui.tabNotifications.addEventListener('click', () => selectTab('notifications'));
 
 ui.soundToggle.addEventListener('click', async () => {
-  const enabled = !(await store.readOne('soundEnabled'));
+  const { soundEnabled, soundName, volume } = await store.read(
+    'soundEnabled',
+    'soundName',
+    'volume',
+  );
+  const enabled = !soundEnabled;
   await store.write({ soundEnabled: enabled });
-  if (enabled) send({ type: 'kanm:test-sound' });
+  // Unmuting plays the current sound so you hear what you just turned on.
+  if (enabled) settingsView.playPreview(soundName, volume);
 });
 
 ui.updateCopy.addEventListener('click', async () => {

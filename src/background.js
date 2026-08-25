@@ -59,8 +59,8 @@ async function ensureOffscreen() {
   await creatingOffscreen;
 }
 
-/** @param source 'notifications' | 'chat' | 'test' */
-async function playChime(source = 'test') {
+/** @param source 'notifications' | 'chat' */
+async function playChime(source) {
   const settings = await store.read('soundEnabled', 'volume', 'soundName', 'soundOnNotifications', 'soundOnChat');
   if (!settings.soundEnabled) return;
   if (source === 'notifications' && !settings.soundOnNotifications) return;
@@ -561,9 +561,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:mark-all-read':
       return respond(sendResponse, () => markAllRead().then(sync));
-
-    case 'kanm:test-sound':
-      return respond(sendResponse, () => playChime('test'));
 
     case 'kanm:chat-create':
       return respond(sendResponse, async () => ({

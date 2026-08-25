@@ -44,6 +44,24 @@ let onOpen = () => {};
 /** Suppresses writes while we are populating the controls from storage. */
 let loading = false;
 
+/* ------------------------------- previews ------------------------------ */
+
+/**
+ * Previews play straight from the popup rather than going through the service
+ * worker and its offscreen document. The popup is already a document with
+ * audio, so this drops two hops and a storage round-trip, and it cannot be
+ * thrown off by a stale offscreen document still holding the previous sound.
+ */
+let preview = null;
+
+export function playPreview(name, volume) {
+  // Cut off whatever is still ringing, so flicking through the list is quick.
+  preview?.pause();
+  preview = new Audio(chrome.runtime.getURL(`sounds/${name}.wav`));
+  preview.volume = Math.min(1, Math.max(0, volume));
+  preview.play().catch((error) => console.warn('[KA Notify Me] preview failed', error));
+}
+
 /* -------------------------------- theme -------------------------------- */
 
 /**
@@ -179,20 +197,29 @@ export function setup(options = {}) {
   );
   ui.poll.addEventListener('change', () => write({ pollSeconds: Number(ui.poll.value) }));
 
-  // Picking a sound or a level should let you hear the result immediately.
-  ui.soundName.addEventListener('change', async () => {
+  // Picking a sound plays it immediately -- that is how you choose one.
+  ui.soundName.addEventListener('change', () => {
     if (loading) return;
-    await store.write({ soundName: ui.soundName.value });
-    send({ type: 'kanm:test-sound' });
+    const name = ui.soundName.value;
+    store.write({ soundName: name });
+    playPreview(name, Number(ui.volume.value) / 100);
   });
 
   let volumeTimer = null;
   ui.volume.addEventListener('input', () => {
     if (loading) return;
-    store.write({ volume: Number(ui.volume.value) / 100 });
+    const volume = Number(ui.volume.value) / 100;
+    store.write({ volume });
     // One preview after the slider settles, not one per pixel of travel.
     clearTimeout(volumeTimer);
-    volumeTimer = setTimeout(() => send({ type: 'kanm:test-sound' }), 350);
+    volumeTimer = setTimeout(() => playPreview(ui.soundName.value, volume), 350);
+  });
+
+  // Turning sound back on confirms it with the current choice.
+  ui.sound.addEventListener('change', () => {
+    if (!loading && ui.sound.checked) {
+      playPreview(ui.soundName.value, Number(ui.volume.value) / 100);
+    }
   });
 
   ui.checkUpdate.addEventListener('click', async () => {
