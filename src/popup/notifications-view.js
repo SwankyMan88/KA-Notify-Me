@@ -19,12 +19,24 @@ const ui = {
 let rendered = [];
 let loadingMore = false;
 let openChat = () => {};
+/**
+ * Keys that were unread when this popup opened. Auto-marking clears the flag on
+ * Khan Academy immediately, so without this you would never get to see what
+ * actually arrived.
+ */
+const arrivedThisSession = new Set();
+
+export function rememberArrived(keys) {
+  for (const key of keys) arrivedThisSession.add(key);
+}
 
 function buildItem(notification, chat) {
   const { icon, title, body } = describe(notification);
 
   const classes = ['item'];
-  if (notification.brandNew) classes.push('item--new');
+  if (notification.brandNew || arrivedThisSession.has(notification.urlsafeKey)) {
+    classes.push('item--new');
+  }
   if (chat) classes.push('item--chat');
 
   // A notification about one of your rooms opens the room; everything else is
@@ -105,6 +117,15 @@ function renderList(notifications, chats) {
   rendered = keys;
 }
 
+/**
+ * Chat replies arrive as ordinary Khan Academy notifications too. They are
+ * already in the Chat menu, so by default they are kept out of this list.
+ */
+function visible(state) {
+  if (!state.hideChatNotifications) return state.notifications;
+  return state.notifications.filter((n) => !findChatForNotification(n, state.chats));
+}
+
 export function render(state) {
   ui.markRead.disabled = state.unreadCount === 0;
 
@@ -118,7 +139,9 @@ export function render(state) {
 
   ui.loading.hidden = true;
 
-  if (!state.notifications.length) {
+  const shown = visible(state);
+
+  if (!shown.length) {
     ui.list.hidden = true;
     ui.sentinel.hidden = true;
     ui.empty.hidden = false;
@@ -129,7 +152,7 @@ export function render(state) {
 
   ui.empty.hidden = true;
   ui.list.hidden = false;
-  renderList(state.notifications, state.chats);
+  renderList(visible(state), state.chats);
 
   ui.sentinel.hidden = false;
   ui.sentinelText.textContent = state.hasMore

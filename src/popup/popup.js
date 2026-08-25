@@ -213,6 +213,21 @@ chatView.setup();
 settingsView.setup({ onOpen: () => render(), onClose: () => render() });
 tooltip.setup();
 
+/**
+ * Opening the popup counts as reading. The keys are remembered first so the
+ * list still highlights what arrived, even though Khan Academy no longer
+ * considers it new.
+ */
+async function autoMarkRead() {
+  const state = await store.read('autoMarkRead', 'signedIn', 'unreadCount', 'notifications');
+  if (!state.autoMarkRead || !state.signedIn || state.unreadCount === 0) return;
+
+  notificationsView.rememberArrived(
+    state.notifications.filter((n) => n.brandNew).map((n) => n.urlsafeKey),
+  );
+  await send({ type: 'kanm:mark-all-read' });
+}
+
 // The background writes straight to storage, so watching it keeps the popup live.
 chrome.storage.onChanged.addListener(render);
 
@@ -221,3 +236,4 @@ await chatView.restore();
 await render();
 send({ type: 'kanm:sync' });
 send({ type: 'kanm:check-update' });
+autoMarkRead();

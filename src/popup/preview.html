@@ -60,6 +60,8 @@
             type="text"
             placeholder="Link to one of your programs"
           />
+          <input id="room-name-input" class="field" type="text" maxlength="40"
+            placeholder="Room name (optional)" />
           <p class="hint">Posts a comment on the program and gives you a code to share.</p>
 
           <label class="check">
@@ -102,6 +104,11 @@
           <div class="code-row">
             <input id="room-code" class="code-chip" type="text" readonly />
             <button id="copy-code" class="primary primary--inline" type="button">Copy</button>
+          </div>
+          <div class="code-row code-row--rename">
+            <input id="rename-input" class="code-chip code-chip--text" type="text" maxlength="40"
+              placeholder="Room name" />
+            <button id="rename-save" class="primary primary--inline" type="button">Rename</button>
           </div>
           <div class="room-links">
             <a id="room-open" class="link" href="#" target="_blank" rel="noreferrer">Open on KA</a>
@@ -231,6 +238,24 @@
               data-tip="Banners the extension shows on its own, like &quot;a new version is available&quot;. Turn off to never see them — you can still check for updates below."></button>
           </span>
           <label class="switch"><input id="set-auto-messages" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Mark read when opened
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Clears the &quot;new&quot; flag on Khan Academy as soon as you open this popup, so the badge does not pile up. What arrived is still highlighted until you close the popup."></button>
+          </span>
+          <label class="switch"><input id="set-auto-mark-read" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Hide chat from notifications
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Chat replies also arrive as ordinary Khan Academy notifications. This keeps them out of the Notifications list, since they are already in Chat. It cannot stop Khan Academy creating them on its own site."></button>
+          </span>
+          <label class="switch"><input id="set-hide-chat-notifications" type="checkbox" /><span></span></label>
         </div>
 
         <div class="setting setting--stack">

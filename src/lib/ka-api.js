@@ -1,5 +1,5 @@
 import { GRAPHQL_URL, SAFELIST_URL, SESSION_COOKIE } from './constants.js';
-import { findRoomId } from './chat.js';
+import { findRoomId, findRoomName } from './chat.js';
 
 /**
  * "Signing in" is really just borrowing the session you already have in this
@@ -190,6 +190,13 @@ export async function postReply(roomKey, text) {
   return addFeedback({ parentKey: roomKey, textContent: text, feedbackType: 'REPLY' }, 'message');
 }
 
+export async function deleteMessage(messageKey) {
+  const data = await callGraphQL('DeletePostMutation', { postKey: messageKey });
+  const error = data?.hideFeedback?.error;
+  if (error) throw new Error(`Khan Academy would not delete that (${error.code}).`);
+  return true;
+}
+
 async function readReplies(postKey) {
   const data = await callGraphQL('getFeedbackReplies', { postKey });
   const replies = data?.feedbackReplies ?? [];
@@ -259,6 +266,7 @@ function describeRoomComment(comment) {
   return {
     key: comment.key,
     expandKey: comment.expandKey ?? '',
+    name: findRoomName(comment.content),
     replyCount: comment.replyCount ?? 0,
     replyExpandKeys: comment.replyExpandKeys ?? [],
     title: comment.focus?.translatedTitle ?? 'Khan Academy program',

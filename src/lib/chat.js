@@ -38,12 +38,41 @@ export function makeRoomId() {
  * the comment did not already give away — the code is just the program and the
  * room id, both of which are visible to anyone looking at the comment.
  */
-export function roomMarker(roomId, code = null) {
-  const line = `KA Notify Me chat room ${roomId} — reply below to join the conversation.`;
+export function roomMarker(roomId, { name = '', code = null } = {}) {
+  const titled = name ? ` · ${cleanName(name)}` : '';
+  const line = `KA Notify Me chat room ${roomId}${titled} — reply below to join the conversation.`;
   return code ? `${line}\nJoin code: ${code}` : line;
 }
 
+/**
+ * A room name has to survive living inside a comment, so it cannot carry
+ * newlines, and it cannot contain the two characters that delimit it.
+ */
+export function cleanName(name) {
+  return String(name ?? '')
+    .replace(/[\r\n·—]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40);
+}
+
 const MARKER_RE = new RegExp(`KA Notify Me chat room ([${ALPHABET}]{${ROOM_ID_LENGTH}})`, 'i');
+
+/** The optional name sits between the id and the em-dash on the same line. */
+const NAME_RE = new RegExp(
+  'KA Notify Me chat room [' +
+    ALPHABET +
+    ']{' +
+    ROOM_ID_LENGTH +
+    '}\\s*\\u00b7\\s*([^\\n\\u2014]+?)\\s*\\u2014',
+  'i',
+);
+
+/** The name the room was created with, as written into its anchor comment. */
+export function findRoomName(content) {
+  const match = String(content ?? '').match(NAME_RE);
+  return match ? cleanName(match[1]) : null;
+}
 
 /** Pulls the room id back out of a comment, or null if it is not one of ours. */
 export function findRoomId(content) {
@@ -121,6 +150,10 @@ export function decodeRoomCode(input) {
 }
 
 /* -------------------------------- helpers ------------------------------ */
+
+export function displayTitle(chat) {
+  return chat.customTitle || chat.name || chat.title || 'Khan Academy program';
+}
 
 export function programUrl(programId) {
   return `https://www.khanacademy.org/computer-programming/x/${programId}`;

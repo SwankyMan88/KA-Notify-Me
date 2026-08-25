@@ -10,6 +10,7 @@ import {
 } from './lib/constants.js';
 import {
   createRoomComment,
+  deleteMessage,
   fetchNotificationPage,
   fetchProfile,
   fetchReplies,
@@ -21,6 +22,7 @@ import {
 } from './lib/ka-api.js';
 import {
   chatId,
+  cleanName,
   countUnread,
   decodeRoomCode,
   encodeRoomCode,
@@ -199,20 +201,23 @@ async function withChats(update) {
   return next;
 }
 
-async function createChat(programInput, { shareCode = false } = {}) {
+async function createChat(programInput, { shareCode = false, name = '' } = {}) {
   const programId = parseProgramId(programInput);
 
   // The room id goes into the comment text, which is how it is found later.
+  // The name goes in beside it, so whoever joins sees the same room name.
   const roomId = makeRoomId();
   const code = encodeRoomCode({ programId, roomId });
+  const roomName = cleanName(name);
   const comment = await createRoomComment(
     programId,
-    roomMarker(roomId, shareCode ? code : null),
+    roomMarker(roomId, { name: roomName, code: shareCode ? code : null }),
   );
 
   const chat = await adoptRoom({
     programId,
     roomId,
+    name: roomName,
     roomKey: comment.key,
     expandKey: comment.expandKey ?? '',
     title: comment.focus?.translatedTitle ?? 'Khan Academy program',
@@ -256,6 +261,7 @@ async function joinChat(code) {
   return adoptRoom({
     programId,
     roomId,
+    name: found.name ?? '',
     roomKey: found.key,
     expandKey: found.expandKey,
     title: found.title,
@@ -344,6 +350,34 @@ async function sendChatMessage(id, text) {
               : 'Sent, but Khan Academy did not read it back. It should appear on the program page.',
           }
         : c,
+    ),
+  );
+}
+
+/**
+ * Renaming only changes what you see. Khan Academy's safelist has no mutation
+ * for editing a posted comment, so the name written into the anchor when the
+ * room was created is fixed; this sits on top of it for you alone.
+ */
+async function renameChat(id, name) {
+  const clean = cleanName(name);
+  await withChats((chats) =>
+    chats.map((chat) => (chat.id === id ? { ...chat, customTitle: clean } : chat)),
+  );
+  return { name: clean };
+}
+
+async function deleteChatMessage(id, messageKey) {
+  const chats = await store.readOne('chats');
+  const chat = chats.find((c) => c.id === id);
+  if (!chat) throw new Error('That chat is no longer on this device.');
+
+  await deleteMessage(messageKey);
+
+  // Drop it locally rather than waiting for the next poll to notice.
+  await withChats((current) =>
+    current.map((c) =>
+      c.id === id ? { ...c, messages: c.messages.filter((m) => m.key !== messageKey) } : c,
     ),
   );
 }
@@ -653,7 +687,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:chat-create':
       return respond(sendResponse, async () => ({
-        chat: await createChat(message.program, { shareCode: message.shareCode }),
+        chat: await createChat(message.program, {
+          shareCode: message.shareCode,
+          name: message.name,
+        }),
       }));
 
     case 'kanm:chat-join':
@@ -664,6 +701,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:chat-seen':
       return respond(sendResponse, () => markChatSeen(message.id));
+
+    case 'kanm:chat-rename':
+      return respond(sendResponse, () => renameChat(message.id, message.name));
+
+    case 'kanm:chat-delete-message':
+      return respond(sendResponse, () => deleteChatMessage(message.id, message.messageKey));
 
     case 'kanm:chat-leave':
       return respond(sendResponse, () => leaveChat(message.id));

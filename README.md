@@ -93,13 +93,25 @@ The extension notices the moment you sign in.
 1. Open the popup, go to the **Chat** tab
 2. Click **New room**
 3. Paste a link to one of your Khan Academy programs
-4. Click **Create room**
+4. Give the room a name (optional)
+5. Click **Create room**
 
 The extension posts a short comment on that program's Tips & Thanks and hands
-you a join code. Send that code to your friend however you like.
+you a join code. Send that code to your friend however you like. The name goes
+into that comment, so whoever joins sees the same room name.
 
 There's a checkbox to print the join code into the comment itself, so anyone
 reading the thread can join. It's off by default.
+
+**To rename a room** — open it, click **⋯**, type a new name, **Rename**.
+
+Note this rename is yours alone. Khan Academy has no way for an extension to
+edit a comment once it's posted, so the name written into the anchor comment
+when the room was created is fixed. Your friend keeps seeing the original.
+
+**To delete a message** — hover it and click the **×**. It asks once before
+committing, since deleting can't be undone. Only your own messages have the
+button; Khan Academy refuses anyone else's.
 
 **To join a room**
 
@@ -128,10 +140,29 @@ you wouldn't post publicly.**
 
 <br>
 
+## Chat and the Khan Academy inbox
+
+A chat message is a real comment reply, so Khan Academy generates its own
+notification for it. Nothing in its API lets an extension unsubscribe from a
+thread, so those notifications cannot be stopped at the source.
+
+What the extension does instead, both on by default in Settings:
+
+- **Hide chat from notifications** keeps them out of the Notifications list,
+  since the messages are already in Chat
+- **Mark read when opened** clears their "new" flag whenever you open the popup,
+  so the count stops building up
+
+They will still be listed on khanacademy.org's own notifications page if you go
+looking for them.
+
+<br>
+
 ## Updating
 
-The extension checks GitHub every few hours and shows a banner in the popup when
-a newer version is available.
+The extension checks GitHub every five minutes and shows a banner in the popup
+when a newer version is available. **Not now** hides that version until a newer
+one appears.
 
 It cannot update itself. An extension loaded this way runs straight off the
 folder on your disk, and no extension is allowed to write to that folder or run
@@ -191,6 +222,10 @@ it for an explanation.
   them
 - **Automatic messages** — turn off banners the extension raises on its own,
   like update notices
+- **Mark read when opened** — clears the "new" flag as soon as you open the
+  popup, so nothing piles up. What arrived stays highlighted until you close it
+- **Hide chat from notifications** — keeps chat replies out of the Notifications
+  list, since they are already in Chat
 - **Updates** — see the current state and check on demand. If a check fails it
   names the hosts it tried rather than saying "Failed to fetch"
 - **Restore defaults** — resets this page only; your rooms and notifications

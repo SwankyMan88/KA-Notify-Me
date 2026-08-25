@@ -63,6 +63,8 @@ const state = {
   soundOnChat: true,
   pollSeconds: 5,
   autoMessages: true,
+  autoMarkRead: true,
+  hideChatNotifications: true,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
@@ -80,6 +82,8 @@ const state = {
       id: '6586620957786112:HTD3PN',
       programId: '6586620957786112',
       roomId: 'HTD3PN',
+      name: 'Homework Help',
+      customTitle: '',
       roomKey: 'room1',
       expandKey: 'ag5zfmtoYW4tYWNhZGVteXI',
       title: 'Particle Fountain',
@@ -95,6 +99,8 @@ const state = {
       id: '6586620957786112:9QW2ZK',
       programId: '6586620957786112',
       roomId: '9QW2ZK',
+      name: '',
+      customTitle: 'My nickname for it',
       roomKey: 'room2',
       expandKey: '',
       title: 'Particle Fountain',
@@ -110,6 +116,8 @@ const state = {
       id: '1234567890123456:B4XM7T',
       programId: '1234567890123456',
       roomId: 'B4XM7T',
+      name: 'Snake chat',
+      customTitle: '',
       roomKey: 'room3',
       expandKey: '',
       title: 'Snake Game',
@@ -213,6 +221,20 @@ globalThis.chrome = {
         ];
         chat.lastSeenKey = chat.messages.at(-1).key;
         await chrome.storage.local.set({ chats: [...state.chats] });
+      }
+      if (message?.type === 'kanm:chat-rename') {
+        const chat = state.chats.find((c) => c.id === message.id);
+        chat.customTitle = String(message.name ?? '').trim().slice(0, 40);
+        await chrome.storage.local.set({ chats: [...state.chats] });
+      }
+      if (message?.type === 'kanm:chat-delete-message') {
+        const chat = state.chats.find((c) => c.id === message.id);
+        chat.messages = chat.messages.filter((m) => m.key !== message.messageKey);
+        await chrome.storage.local.set({ chats: [...state.chats] });
+      }
+      if (message?.type === 'kanm:mark-all-read') {
+        state.notifications = state.notifications.map((n) => ({ ...n, brandNew: false }));
+        await chrome.storage.local.set({ notifications: state.notifications, unreadCount: 0 });
       }
       if (message?.type === 'kanm:diagnose') {
         return {

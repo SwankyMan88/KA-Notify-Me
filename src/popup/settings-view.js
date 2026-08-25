@@ -20,6 +20,8 @@ const ui = {
   soundChat: el('set-sound-chat'),
   poll: el('set-poll'),
   autoMessages: el('set-auto-messages'),
+  autoMarkRead: el('set-auto-mark-read'),
+  hideChatNotifications: el('set-hide-chat-notifications'),
   updateState: el('set-update-state'),
   checkUpdate: el('set-check-update'),
   reset: el('set-reset'),
@@ -37,6 +39,8 @@ const OWNED = [
   'soundOnChat',
   'pollSeconds',
   'autoMessages',
+  'autoMarkRead',
+  'hideChatNotifications',
 ];
 
 let onClose = () => {};
@@ -120,6 +124,8 @@ export function render(state) {
   ui.soundChat.checked = state.soundOnChat;
   ui.poll.value = String(state.pollSeconds);
   ui.autoMessages.checked = state.autoMessages;
+  ui.autoMarkRead.checked = state.autoMarkRead;
+  ui.hideChatNotifications.checked = state.hideChatNotifications;
 
   for (const swatch of ui.accent.children) {
     swatch.setAttribute('aria-pressed', String(swatch.dataset.accent === state.accent));
@@ -199,6 +205,10 @@ export function setup(options = {}) {
     write({ autoMessages: ui.autoMessages.checked }),
   );
   ui.poll.addEventListener('change', () => write({ pollSeconds: Number(ui.poll.value) }));
+  ui.autoMarkRead.addEventListener('change', () => write({ autoMarkRead: ui.autoMarkRead.checked }));
+  ui.hideChatNotifications.addEventListener('change', () =>
+    write({ hideChatNotifications: ui.hideChatNotifications.checked }),
+  );
 
   // Picking a sound plays it immediately -- that is how you choose one.
   ui.soundName.addEventListener('change', () => {

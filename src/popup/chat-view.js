@@ -1,4 +1,4 @@
-import { roomUrl } from '../lib/chat.js';
+import { displayTitle, roomUrl } from '../lib/chat.js';
 import * as store from '../lib/storage.js';
 import { relativeTime } from './format.js';
 import { send } from './messaging.js';
@@ -35,6 +35,9 @@ const ui = {
   copyBtn: el('copy-code'),
   openLink: el('room-open'),
   leaveBtn: el('leave-room'),
+  renameInput: el('rename-input'),
+  renameSave: el('rename-save'),
+  roomNameInput: el('room-name-input'),
   messages: el('messages'),
   roomError: el('room-error'),
   composer: el('composer'),
@@ -90,7 +93,7 @@ function buildRoomRow(chat) {
 
   const title = document.createElement('p');
   title.className = 'room-name';
-  title.textContent = chat.title;
+  title.textContent = displayTitle(chat);
 
   // The room id is shown so two rooms on one program stay tellable apart.
   const tag = document.createElement('span');
@@ -162,11 +165,65 @@ function buildMessage(message, previous, selfKaid) {
   if (!leads) face.classList.add('msg-avatar--hidden');
 
   row.append(face, bubble);
+
+  // Only your own messages: Khan Academy refuses the rest anyway, so offering
+  // the button would just produce an error.
+  if (isSelf) row.append(buildDelete(message));
+
   return row;
 }
 
+/**
+ * Two-step, because deleting is not undoable. The first click arms it, the
+ * second commits, and moving away disarms it again.
+ */
+function buildDelete(message) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'msg-delete';
+  button.title = 'Delete this message';
+  button.textContent = '×';
+
+  let armed = false;
+  const disarm = () => {
+    armed = false;
+    button.classList.remove('msg-delete--armed');
+    button.textContent = '×';
+  };
+
+  button.addEventListener('mouseleave', disarm);
+  button.addEventListener('blur', disarm);
+
+  button.addEventListener('click', async () => {
+    if (!armed) {
+      armed = true;
+      button.classList.add('msg-delete--armed');
+      button.textContent = 'Delete?';
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = '…';
+    const result = await send({
+      type: 'kanm:chat-delete-message',
+      id: openRoomId,
+      messageKey: message.key,
+    });
+    if (!result?.ok) {
+      button.disabled = false;
+      disarm();
+      showError(ui.roomError, result?.error ?? 'Could not delete that message.');
+    }
+  });
+
+  return button;
+}
+
 function renderRoom(chat, selfKaid) {
-  ui.name.textContent = chat.title;
+  ui.name.textContent = displayTitle(chat);
+  if (document.activeElement !== ui.renameInput) {
+    ui.renameInput.value = chat.customTitle || chat.name || '';
+  }
   ui.members.textContent = chat.members.length
     ? chat.members.map((m) => m.nickname).join(', ')
     : `Room ${chat.roomId} · share the code to invite someone`;
@@ -292,9 +349,11 @@ export function setup() {
       type: 'kanm:chat-create',
       program,
       shareCode,
+      name: ui.roomNameInput.value,
     });
     if (result) {
       ui.programInput.value = '';
+      ui.roomNameInput.value = '';
       await openRoom(result.chat.id);
       ui.options.hidden = false; // surface the code straight away
     }
@@ -326,6 +385,26 @@ export function setup() {
 
     ui.runCheck.disabled = false;
     ui.runCheck.textContent = 'Run a connection check';
+  });
+
+  const saveRename = async () => {
+    const result = await send({
+      type: 'kanm:chat-rename',
+      id: openRoomId,
+      name: ui.renameInput.value,
+    });
+    ui.renameSave.textContent = result?.ok ? 'Saved' : 'Failed';
+    setTimeout(() => {
+      ui.renameSave.textContent = 'Rename';
+    }, 1400);
+  };
+
+  ui.renameSave.addEventListener('click', saveRename);
+  ui.renameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveRename();
+    }
   });
 
   ui.back.addEventListener('click', closeRoom);
