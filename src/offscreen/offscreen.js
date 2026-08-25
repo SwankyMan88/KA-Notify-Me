@@ -1,22 +1,43 @@
-import { POLL_INTERVAL_MS } from '../lib/constants.js';
+import { DEFAULT_POLL_SECONDS } from '../lib/constants.js';
 
 /**
  * This document exists only to hold two things the service worker cannot: the
- * 30-second poll timer, and an <audio> element for the chime.
+ * poll timer, and an <audio> element for the alert sound.
  */
 
-const chimeUrl = chrome.runtime.getURL('sounds/chime.wav');
+let timer = null;
+let currentSeconds = null;
 
-setInterval(() => {
+function beat() {
   chrome.runtime.sendMessage({ type: 'kanm:heartbeat' }).catch(() => {
     // The worker is asleep or restarting; the next tick will reach it.
   });
-}, POLL_INTERVAL_MS);
+}
+
+/** Rebuilds the timer only when the interval actually changed. */
+function setInterval_(seconds) {
+  if (seconds === currentSeconds) return;
+  currentSeconds = seconds;
+  if (timer) clearInterval(timer);
+  timer = setInterval(beat, seconds * 1000);
+}
+
+async function applySettings() {
+  const { pollSeconds } = await chrome.storage.local.get(['pollSeconds']);
+  setInterval_(Number(pollSeconds) || DEFAULT_POLL_SECONDS);
+}
+
+applySettings();
+
+// Changing the interval in Settings takes effect without a reload.
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.pollSeconds) applySettings();
+});
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type !== 'kanm:play-chime') return;
 
-  const audio = new Audio(chimeUrl);
+  const audio = new Audio(chrome.runtime.getURL(`sounds/${message.sound ?? 'chime'}.wav`));
   audio.volume = Math.min(1, Math.max(0, message.volume ?? 0.6));
-  audio.play().catch((error) => console.warn('[KA Notify Me] could not play chime', error));
+  audio.play().catch((error) => console.warn('[KA Notify Me] could not play sound', error));
 });

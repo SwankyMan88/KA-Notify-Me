@@ -15,20 +15,23 @@
       <button id="sound-toggle" class="ghost" type="button" aria-pressed="true">
         <span id="sound-glyph">🔔</span>
       </button>
+      <button id="open-settings" class="ghost" type="button" title="Settings">⚙</button>
     </header>
 
     <div id="update-bar" class="update" hidden>
       <div class="update-row">
         <span id="update-text" class="update-text"></span>
-        <button id="update-dismiss" class="update-x" type="button" title="Hide">×</button>
+        <a id="update-repo" class="update-link" href="#" target="_blank" rel="noreferrer">GitHub</a>
       </div>
       <p class="update-hint">
         Run <code id="update-command"></code> in the extension folder, then reload.
       </p>
       <div class="update-actions">
         <button id="update-copy" class="update-btn" type="button">Copy command</button>
-        <button id="update-reload" class="update-btn" type="button">Reload extension</button>
-        <a id="update-repo" class="update-btn" href="#" target="_blank" rel="noreferrer">GitHub</a>
+        <button id="update-reload" class="update-btn" type="button">Reload</button>
+        <button id="update-dismiss" class="update-btn update-btn--quiet" type="button">
+          Not now
+        </button>
       </div>
     </div>
 
@@ -144,6 +147,128 @@
         <section id="loading" class="state">
           <p class="state-text">Loading…</p>
         </section>
+      </div>
+    </section>
+
+
+    <!-- ---------------------------- settings ---------------------------- -->
+
+    <section id="panel-settings" class="panel settings" hidden>
+      <div class="settings-head">
+        <button id="settings-back" class="ghost" type="button" title="Back">←</button>
+        <p class="nickname">Settings</p>
+      </div>
+
+      <div class="settings-body">
+        <p class="group">Appearance</p>
+
+        <div class="setting">
+          <span class="setting-label">
+            Theme
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Choose light or dark. &quot;Match my system&quot; follows your computer's setting and changes with it."></button>
+          </span>
+          <select id="set-theme" class="input"></select>
+        </div>
+
+        <div class="setting setting--stack">
+          <span class="setting-label">
+            Accent colour
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="The highlight colour used for buttons, unread badges and your own chat bubbles."></button>
+          </span>
+          <div id="set-accent" class="swatches"></div>
+        </div>
+
+        <p class="group">Sound</p>
+
+        <div class="setting">
+          <span class="setting-label">
+            Play sounds
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Master switch. When off, nothing makes noise, whatever the settings below say. Same as the bell in the top bar."></button>
+          </span>
+          <label class="switch"><input id="set-sound" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Alert sound
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Which sound plays. Pick one to hear it. Knock is the quietest and lowest if the others are sharp."></button>
+          </span>
+          <select id="set-sound-name" class="input"></select>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Volume
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="How loud the alert sound is. Moving this plays a preview at the new level."></button>
+          </span>
+          <input id="set-volume" class="range" type="range" min="0" max="100" step="5" />
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Sound for notifications
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Ring when a Khan Academy notification arrives — replies, badges, assignments."></button>
+          </span>
+          <label class="switch"><input id="set-sound-notifications" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Sound for chat
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Ring when someone sends a message in one of your rooms. Turn off to keep chat silent while notifications still ring."></button>
+          </span>
+          <label class="switch"><input id="set-sound-chat" type="checkbox" /><span></span></label>
+        </div>
+
+        <p class="group">Checking</p>
+
+        <div class="setting">
+          <span class="setting-label">
+            Check for new things
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="How often to ask Khan Academy for notifications and chat messages. Faster feels instant but makes more requests, and Khan Academy may start refusing them."></button>
+          </span>
+          <select id="set-poll" class="input"></select>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Automatic messages
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Banners the extension shows on its own, like &quot;a new version is available&quot;. Turn off to never see them — you can still check for updates below."></button>
+          </span>
+          <label class="switch"><input id="set-auto-messages" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting setting--stack">
+          <span class="setting-label">
+            Updates
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Compares this copy against the latest on GitHub. It cannot install the update — an extension cannot change its own files — so it tells you the command to run."></button>
+          </span>
+          <p id="set-update-state" class="setting-note"></p>
+          <button id="set-check-update" class="input input--btn" type="button">Check now</button>
+        </div>
+
+        <p class="group">Reset</p>
+
+        <div class="setting setting--stack">
+          <span class="setting-label">
+            Restore defaults
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Puts every setting on this page back to how it started. Your chat rooms and notifications are left alone."></button>
+          </span>
+          <button id="set-reset" class="input input--btn input--danger" type="button">Reset settings</button>
+        </div>
+
+        <p class="version-line">KA Notify Me <span id="set-version"></span></p>
       </div>
     </section>
 

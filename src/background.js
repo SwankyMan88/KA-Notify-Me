@@ -6,7 +6,7 @@ import {
   OFFSCREEN_PATH,
   SESSION_COOKIE,
   UPDATE_ALARM,
-  UPDATE_CHECK_HOURS,
+  UPDATE_CHECK_MINUTES,
 } from './lib/constants.js';
 import {
   createRoomComment,
@@ -29,7 +29,7 @@ import {
   parseProgramId,
   roomMarker,
 } from './lib/chat.js';
-import { checkForUpdate } from './lib/update.js';
+import { checkForUpdate, compareVersions } from './lib/update.js';
 import * as store from './lib/storage.js';
 
 /* ------------------------------ offscreen ------------------------------ */
@@ -59,11 +59,21 @@ async function ensureOffscreen() {
   await creatingOffscreen;
 }
 
-async function playChime() {
-  const { soundEnabled, volume } = await store.read('soundEnabled', 'volume');
-  if (!soundEnabled) return;
+/** @param source 'notifications' | 'chat' | 'test' */
+async function playChime(source = 'test') {
+  const settings = await store.read('soundEnabled', 'volume', 'soundName', 'soundOnNotifications', 'soundOnChat');
+  if (!settings.soundEnabled) return;
+  if (source === 'notifications' && !settings.soundOnNotifications) return;
+  if (source === 'chat' && !settings.soundOnChat) return;
+
   await ensureOffscreen();
-  chrome.runtime.sendMessage({ type: 'kanm:play-chime', volume }).catch(() => {});
+  chrome.runtime
+    .sendMessage({
+      type: 'kanm:play-chime',
+      volume: settings.volume,
+      sound: settings.soundName,
+    })
+    .catch(() => {});
 }
 
 /* -------------------------------- badge -------------------------------- */
@@ -318,10 +328,16 @@ async function leaveChat(id) {
 async function runUpdateCheck() {
   try {
     const latest = await checkForUpdate();
+    const dismissed = await store.readOne('updateDismissedVersion');
+
     await store.write({
       updateAvailable: latest,
       updateCheckedAt: Date.now(),
       updateError: null,
+      // "Not now" applies to one version only; a newer one speaks up again.
+      ...(latest && dismissed && compareVersions(latest, dismissed) > 0
+        ? { updateDismissedVersion: null }
+        : {}),
     });
     return { version: latest };
   } catch (error) {
@@ -473,8 +489,9 @@ async function runSync() {
 
   await paintBadge();
 
-  if (!firstSync && (freshCount > 0 || newChatMessages)) {
-    await playChime();
+  if (!firstSync) {
+    if (freshCount > 0) await playChime('notifications');
+    else if (newChatMessages) await playChime('chat');
   }
 }
 
@@ -495,7 +512,7 @@ function sync() {
 async function start() {
   await chrome.action.setBadgeBackgroundColor({ color: BADGE_COLOR });
   await chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 1 });
-  await chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_CHECK_HOURS * 60 });
+  await chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_CHECK_MINUTES });
   await ensureOffscreen();
   await sync();
   runUpdateCheck();
@@ -546,7 +563,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return respond(sendResponse, () => markAllRead().then(sync));
 
     case 'kanm:test-sound':
-      return respond(sendResponse, () => playChime());
+      return respond(sendResponse, () => playChime('test'));
 
     case 'kanm:chat-create':
       return respond(sendResponse, async () => ({

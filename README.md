@@ -165,7 +165,26 @@ error in the Chat tab. It tests each step and tells you which one failed.
 exists and its comment hasn't been deleted.
 
 **Everything is silent.** Check the bell button in the top-right of the popup
-isn't muted.
+isn't muted, and look under **Settings → Sound**.
+
+<br>
+
+## Settings
+
+The gear in the top-right opens Settings. Every row has a small **i** next to
+it — hover or tab to it and a note explains what that setting does.
+
+- **Appearance** — light, dark, or match your system; five accent colours
+- **Sound** — master switch, four alert sounds, volume, and separate switches
+  for notification sounds and chat sounds
+- **Checking** — how often to poll Khan Academy, from 5 seconds to a minute.
+  Slower means fewer requests, which matters if Khan Academy starts refusing
+  them
+- **Automatic messages** — turn off banners the extension raises on its own,
+  like update notices
+- **Updates** — see the current state and check on demand
+- **Restore defaults** — resets this page only; your rooms and notifications
+  are left alone
 
 <br>
 

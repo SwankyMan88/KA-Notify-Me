@@ -4,6 +4,8 @@ import * as store from '../lib/storage.js';
 import { send } from './messaging.js';
 import * as chatView from './chat-view.js';
 import * as notificationsView from './notifications-view.js';
+import * as settingsView from './settings-view.js';
+import * as tooltip from './tooltip.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -29,13 +31,12 @@ const ui = {
   updateRepo: el('update-repo'),
   updateDismiss: el('update-dismiss'),
 
+  tabs: document.querySelector('.tabs'),
   signedOut: el('signed-out'),
   status: el('status'),
 };
 
 const TAB_KEY = 'kanm:last-tab';
-/** Which version the user has waved away, for this popup session. */
-const DISMISSED_KEY = 'kanm:update-dismissed';
 let activeTab = sessionStorage.getItem(TAB_KEY) ?? 'notifications';
 let latestState = null;
 
@@ -49,10 +50,12 @@ function selectTab(tab) {
   ui.tabChat.setAttribute('aria-selected', String(onChat));
   ui.tabNotifications.setAttribute('aria-selected', String(!onChat));
 
-  // Signed-out replaces both panels, so respect that first.
+  // Settings and signed-out both replace the panels entirely.
   const signedOut = latestState?.loaded && !latestState.signedIn;
-  ui.panelChat.hidden = signedOut || !onChat;
-  ui.panelNotifications.hidden = signedOut || onChat;
+  const covered = signedOut || settingsView.isOpen();
+  ui.panelChat.hidden = covered || !onChat;
+  ui.panelNotifications.hidden = covered || onChat;
+  ui.tabs.hidden = covered;
 
   if (!onChat && latestState) notificationsView.topUp(latestState);
 }
@@ -111,9 +114,12 @@ function renderStatus(state) {
 
 function renderUpdate(state) {
   const latest = state.updateAvailable;
-  const dismissed = sessionStorage.getItem(DISMISSED_KEY);
 
-  ui.updateBar.hidden = !latest || latest === dismissed;
+  ui.updateBar.hidden =
+    !latest ||
+    !state.autoMessages ||
+    latest === state.updateDismissedVersion ||
+    settingsView.isOpen();
   if (ui.updateBar.hidden) return;
 
   ui.updateText.textContent = `Version ${latest} is available — you have ${installedVersion()}`;
@@ -143,6 +149,9 @@ async function render() {
     ui.panelNotifications.hidden = true;
     return;
   }
+
+  settingsView.applyAppearance(state);
+  settingsView.render(state);
 
   chatView.render(state);
   notificationsView.render(state);
@@ -178,9 +187,9 @@ ui.updateReload.addEventListener('click', () => {
   window.close();
 });
 
+// "Not now" hides this version for good; a newer one clears it and speaks up.
 ui.updateDismiss.addEventListener('click', async () => {
-  sessionStorage.setItem(DISMISSED_KEY, await store.readOne('updateAvailable'));
-  ui.updateBar.hidden = true;
+  await store.write({ updateDismissedVersion: await store.readOne('updateAvailable') });
 });
 
 notificationsView.setup({
@@ -195,10 +204,13 @@ notificationsView.setup({
   },
 });
 chatView.setup();
+settingsView.setup({ onOpen: () => render(), onClose: () => render() });
+tooltip.setup();
 
 // The background writes straight to storage, so watching it keeps the popup live.
 chrome.storage.onChanged.addListener(render);
 
+settingsView.applyAppearance(await store.read('theme', 'accent'));
 await chatView.restore();
 await render();
 send({ type: 'kanm:sync' });

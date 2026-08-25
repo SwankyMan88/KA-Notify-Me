@@ -10,8 +10,10 @@
   color-scheme: light dark;
 }
 
+/* Dark palette, factored out so the media query and the explicit choice can
+   both reach it without repeating the values. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --violet: #9b82ff;
     --violet-soft: rgba(155, 130, 255, 0.16);
     --bg: #15121f;
@@ -22,6 +24,47 @@
     --danger: #ff8a7a;
   }
 }
+
+:root[data-theme="dark"] {
+  --violet-soft: rgba(155, 130, 255, 0.16);
+  --bg: #15121f;
+  --surface: #1e1a2c;
+  --line: #2c2740;
+  --text: #efecf8;
+  --muted: #9d97b4;
+  --danger: #ff8a7a;
+}
+
+/* ------------------------------- accents ------------------------------- */
+
+:root[data-accent="blue"] {
+  --violet: #0b72d9;
+  --violet-soft: rgba(11, 114, 217, 0.14);
+}
+:root[data-accent="teal"] {
+  --violet: #0d8f86;
+  --violet-soft: rgba(13, 143, 134, 0.14);
+}
+:root[data-accent="rose"] {
+  --violet: #d63b6a;
+  --violet-soft: rgba(214, 59, 106, 0.14);
+}
+:root[data-accent="amber"] {
+  --violet: #b7791f;
+  --violet-soft: rgba(183, 121, 31, 0.16);
+}
+
+/* Dark mode needs lighter accents to stay readable on the dark surface. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-accent="blue"] { --violet: #6cb3f5; }
+  :root:not([data-theme="light"])[data-accent="teal"] { --violet: #4ecdc4; }
+  :root:not([data-theme="light"])[data-accent="rose"] { --violet: #ff8fb0; }
+  :root:not([data-theme="light"])[data-accent="amber"] { --violet: #f0c060; }
+}
+:root[data-theme="dark"][data-accent="blue"] { --violet: #6cb3f5; }
+:root[data-theme="dark"][data-accent="teal"] { --violet: #4ecdc4; }
+:root[data-theme="dark"][data-accent="rose"] { --violet: #ff8fb0; }
+:root[data-theme="dark"][data-accent="amber"] { --violet: #f0c060; }
 
 * {
   box-sizing: border-box;
@@ -855,4 +898,296 @@ body {
   font-size: 11px;
   color: var(--muted);
   flex-shrink: 0;
+}
+
+/* ------------------------------- settings ------------------------------ */
+
+.settings {
+  background: var(--bg);
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.settings-head .ghost {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.settings-head .nickname {
+  font-size: 13px;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 14px;
+}
+
+.group {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting--stack {
+  display: block;
+}
+
+.setting-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setting-note {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.input {
+  flex-shrink: 0;
+  max-width: 165px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.input--btn {
+  width: 100%;
+  max-width: none;
+  font-weight: 600;
+  color: var(--violet);
+  border-color: var(--violet);
+}
+
+.input--btn:hover {
+  background: var(--violet);
+  color: #fff;
+}
+
+.input--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.input--danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.range {
+  flex-shrink: 0;
+  width: 140px;
+  accent-color: var(--violet);
+}
+
+.version-line {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* -------------------------------- switch ------------------------------- */
+
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--line);
+  transition: background 0.15s;
+  pointer-events: none;
+}
+
+.switch span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.switch input:checked + span {
+  background: var(--violet);
+}
+
+.switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + span {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+/* ------------------------------- swatches ------------------------------ */
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--text);
+}
+
+/* -------------------------- info dot + tooltip ------------------------- */
+
+.info {
+  position: relative;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.info::before {
+  content: "i";
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.info:hover,
+.info:focus-visible {
+  border-color: var(--violet);
+  color: var(--violet);
+}
+
+/* The bubble lives on <body> and is positioned in JS. It has to: the settings
+   list is a scroll container, so anything drawn outside a row gets clipped at
+   the container's edge -- and because the list scrolls, any row can end up
+   against that edge. Fixed positioning is the only way out of the scroller. */
+.tip {
+  position: fixed;
+  z-index: 50;
+  width: 232px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: left;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s, visibility 0.12s;
+  pointer-events: none;
+}
+
+.tip--shown {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tip-arrow {
+  position: fixed;
+  z-index: 51;
+  width: 9px;
+  height: 9px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  transform: rotate(45deg);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s, visibility 0.12s;
+  pointer-events: none;
+}
+
+.tip-arrow--shown {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ------------------------- update banner extras ------------------------ */
+
+.update-link {
+  flex-shrink: 0;
+  color: var(--violet);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.update-btn--quiet {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.update-btn--quiet:hover {
+  background: var(--line);
+  color: var(--text);
 }

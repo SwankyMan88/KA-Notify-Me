@@ -11,8 +11,16 @@ export const SAFELIST_URL = 'https://cdn.jsdelivr.net/gh/bhavjitChauhan/khan-api
 /** The session cookie Khan Academy sets when you sign in. */
 export const SESSION_COOKIE = 'KAAS';
 
-/** How often the background looks for new notifications and chat messages. */
-export const POLL_INTERVAL_MS = 5_000;
+/** Default seconds between polls; the user can change this in Settings. */
+export const DEFAULT_POLL_SECONDS = 5;
+
+/** Poll intervals offered in Settings. Faster costs more requests to Khan. */
+export const POLL_CHOICES = [
+  { value: 5, label: 'Every 5 seconds' },
+  { value: 15, label: 'Every 15 seconds' },
+  { value: 30, label: 'Every 30 seconds' },
+  { value: 60, label: 'Every minute' },
+];
 
 /**
  * Your name, avatar and points do not change every few seconds, so the profile
@@ -50,8 +58,33 @@ export const UPDATE_MANIFEST_URL =
 
 export const UPDATE_ALARM = 'kanm-update-check';
 
-/** Hours between update checks. GitHub is not going anywhere; six is plenty. */
-export const UPDATE_CHECK_HOURS = 6;
+/** Minutes between update checks. chrome.alarms will not fire faster than 1. */
+export const UPDATE_CHECK_MINUTES = 5;
 
 /** The command that actually performs the update, shown in the popup. */
 export const UPDATE_COMMAND = 'git pull';
+
+/* ------------------------------- settings ------------------------------- */
+
+export const THEMES = [
+  { value: 'system', label: 'Match my system' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+/** Accent colours. Each is [light mode, dark mode] so contrast holds in both. */
+export const ACCENTS = [
+  { value: 'violet', label: 'Violet', swatch: '#6d4aff' },
+  { value: 'blue', label: 'Blue', swatch: '#0b72d9' },
+  { value: 'teal', label: 'Teal', swatch: '#0d8f86' },
+  { value: 'rose', label: 'Rose', swatch: '#d63b6a' },
+  { value: 'amber', label: 'Amber', swatch: '#b7791f' },
+];
+
+/** Keep these ids in sync with the SOUNDS table in tools/make-assets.mjs. */
+export const SOUNDS = [
+  { value: 'chime', label: 'Chime' },
+  { value: 'ping', label: 'Ping' },
+  { value: 'knock', label: 'Knock' },
+  { value: 'marimba', label: 'Marimba' },
+];

@@ -146,31 +146,31 @@ for (const size of [16, 32, 48, 128]) {
 
 /* ---------------------------------- WAV ---------------------------------- */
 
-function renderChime() {
-  const rate = 44100;
-  const duration = 0.85;
-  const frames = Math.floor(rate * duration);
+const RATE = 44100;
+
+/**
+ * Renders a set of struck notes into a 16-bit mono WAV. Each note is a sine
+ * plus a quieter octave, under an exponential decay with a short attack -- a
+ * cheap approximation of something being struck.
+ */
+function renderSound({ notes, duration, decay = 5.2, octave = 0.28, gain = 0.32 }) {
+  const frames = Math.floor(RATE * duration);
   const pcm = Buffer.alloc(frames * 2);
 
-  // Two struck notes (A5 then E6) with a soft exponential decay each.
-  const notes = [
-    { freq: 880.0, start: 0.0 },
-    { freq: 1318.51, start: 0.16 },
-  ];
-
   for (let i = 0; i < frames; i++) {
-    const t = i / rate;
+    const t = i / RATE;
     let sample = 0;
 
     for (const { freq, start } of notes) {
       const age = t - start;
       if (age < 0) continue;
-      const envelope = Math.exp(-age * 5.2) * (1 - Math.exp(-age * 400));
-      // Fundamental plus a quiet octave gives it a bell-like shimmer.
-      sample += envelope * (Math.sin(2 * Math.PI * freq * age) + 0.28 * Math.sin(4 * Math.PI * freq * age));
+      const envelope = Math.exp(-age * decay) * (1 - Math.exp(-age * 400));
+      sample +=
+        envelope *
+        (Math.sin(2 * Math.PI * freq * age) + octave * Math.sin(4 * Math.PI * freq * age));
     }
 
-    const value = Math.max(-1, Math.min(1, sample * 0.32));
+    const value = Math.max(-1, Math.min(1, sample * gain));
     pcm.writeInt16LE(Math.round(value * 32767), i * 2);
   }
 
@@ -179,18 +179,50 @@ function renderChime() {
   header.writeUInt32LE(36 + pcm.length, 4);
   header.write('WAVE', 8, 'ascii');
   header.write('fmt ', 12, 'ascii');
-  header.writeUInt32LE(16, 16); // fmt chunk size
+  header.writeUInt32LE(16, 16);
   header.writeUInt16LE(1, 20); // PCM
   header.writeUInt16LE(1, 22); // mono
-  header.writeUInt32LE(rate, 24);
-  header.writeUInt32LE(rate * 2, 28); // byte rate
-  header.writeUInt16LE(2, 32); // block align
-  header.writeUInt16LE(16, 34); // bits per sample
+  header.writeUInt32LE(RATE, 24);
+  header.writeUInt32LE(RATE * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
   header.write('data', 36, 'ascii');
   header.writeUInt32LE(pcm.length, 40);
 
   return Buffer.concat([header, pcm]);
 }
 
-writeFileSync(join(ROOT, 'sounds', 'chime.wav'), renderChime());
-console.log('sounds/chime.wav');
+// Keep these ids in sync with SOUNDS in src/lib/constants.js.
+const SOUNDS = {
+  // Two struck notes, A5 then E6.
+  chime: { notes: [{ freq: 880.0, start: 0 }, { freq: 1318.51, start: 0.16 }], duration: 0.85 },
+
+  // One bright note, gone quickly.
+  ping: { notes: [{ freq: 1567.98, start: 0 }], duration: 0.4, decay: 11, gain: 0.28 },
+
+  // Low and soft, for people who find the bright ones sharp.
+  knock: {
+    notes: [{ freq: 196.0, start: 0 }, { freq: 293.66, start: 0.07 }],
+    duration: 0.55,
+    decay: 9,
+    octave: 0.12,
+    gain: 0.42,
+  },
+
+  // A rising three-note figure.
+  marimba: {
+    notes: [
+      { freq: 659.25, start: 0 },
+      { freq: 880.0, start: 0.09 },
+      { freq: 1174.66, start: 0.18 },
+    ],
+    duration: 0.9,
+    decay: 7,
+    octave: 0.18,
+  },
+};
+
+for (const [name, spec] of Object.entries(SOUNDS)) {
+  writeFileSync(join(ROOT, 'sounds', `${name}.wav`), renderSound(spec));
+  console.log(`sounds/${name}.wav`);
+}
