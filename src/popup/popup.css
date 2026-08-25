@@ -969,6 +969,10 @@ body {
   color: var(--muted);
 }
 
+.setting-note--bad {
+  color: var(--danger);
+}
+
 .input {
   flex-shrink: 0;
   max-width: 165px;

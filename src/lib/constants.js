@@ -50,11 +50,9 @@ export const CHAT_CODE_PREFIX = 'KANM1-';
 
 /* -------------------------------- updates ------------------------------- */
 
-export const REPO_URL = 'https://github.com/SwankyMan88/KA-Notify-Me';
+export const REPO_SLUG = 'SwankyMan88/KA-Notify-Me';
 
-/** The manifest at the head of the default branch carries the latest version. */
-export const UPDATE_MANIFEST_URL =
-  'https://raw.githubusercontent.com/SwankyMan88/KA-Notify-Me/main/manifest.json';
+export const REPO_URL = `https://github.com/${REPO_SLUG}`;
 
 export const UPDATE_ALARM = 'kanm-update-check';
 

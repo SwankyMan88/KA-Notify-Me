@@ -70,6 +70,8 @@ const state = {
   updateAvailable: '1.1.0',
   updateCheckedAt: now,
   updateError: null,
+  updateSource: 'raw.githubusercontent.com',
+  updateRemoteVersion: '1.1.0',
   profileFetchedAt: now,
   profile: { kaid: me, nickname: 'Colin', username: 'colinb', points: 184320, avatarSrc: null },
 

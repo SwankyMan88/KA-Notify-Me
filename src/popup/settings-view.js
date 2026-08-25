@@ -131,16 +131,19 @@ export function render(state) {
   }
 
   ui.updateState.textContent = updateSentence(state);
+  ui.updateState.classList.toggle('setting-note--bad', Boolean(state.updateError));
   ui.version.textContent = `v${installedVersion()}`;
 
   loading = false;
 }
 
 function updateSentence(state) {
-  if (state.updateError) return `Last check failed: ${state.updateError}`;
+  if (state.updateError) return state.updateError;
   if (state.updateAvailable) return `Version ${state.updateAvailable} is available.`;
   if (!state.updateCheckedAt) return 'Not checked yet.';
-  return `Up to date. Checked ${timeAgo(state.updateCheckedAt)}.`;
+
+  const via = state.updateSource ? ` via ${state.updateSource}` : '';
+  return `Up to date. Checked ${timeAgo(state.updateCheckedAt)}${via}.`;
 }
 
 function timeAgo(stamp) {

@@ -1,4 +1,4 @@
-import { UPDATE_MANIFEST_URL } from './constants.js';
+import { REPO_SLUG } from './constants.js';
 
 /**
  * Update checking, not updating.
@@ -33,19 +33,99 @@ export function installedVersion() {
   return chrome.runtime.getManifest().version;
 }
 
+/* ------------------------------- sources ------------------------------- */
+
 /**
- * Reads the manifest at the head of the default branch and compares versions.
- * Returns the newer version string, or null when already current.
+ * Three independent ways to read the manifest at the head of the branch.
+ *
+ * One host is not enough: raw.githubusercontent.com is routinely blocked by
+ * school and workplace network filters even when github.com itself is allowed,
+ * and a blocked host is indistinguishable from being offline -- both surface as
+ * a bare "Failed to fetch". Ordered fastest-to-freshest, so a working first
+ * choice is normally the only request made.
  */
-export async function checkForUpdate() {
-  const response = await fetch(UPDATE_MANIFEST_URL, { cache: 'no-cache' });
-  if (!response.ok) {
-    throw new Error(`Could not reach GitHub (HTTP ${response.status}).`);
+export const UPDATE_SOURCES = [
+  {
+    id: 'raw.githubusercontent.com',
+    url: `https://raw.githubusercontent.com/${REPO_SLUG}/main/manifest.json`,
+    parse: (text) => JSON.parse(text).version,
+  },
+  {
+    id: 'api.github.com',
+    url: `https://api.github.com/repos/${REPO_SLUG}/contents/manifest.json?ref=main`,
+    // The contents API wraps the file as base64 with newlines in it.
+    parse: (text) => {
+      const payload = JSON.parse(text);
+      if (payload.encoding !== 'base64' || !payload.content) {
+        throw new Error('unexpected response shape');
+      }
+      return JSON.parse(atob(payload.content.replace(/\s/g, ''))).version;
+    },
+  },
+  {
+    // Already proven to work here: the GraphQL safelist is fetched from it.
+    // Last because its cache for a branch ref can lag by several hours.
+    id: 'cdn.jsdelivr.net',
+    url: `https://cdn.jsdelivr.net/gh/${REPO_SLUG}@main/manifest.json`,
+    parse: (text) => JSON.parse(text).version,
+  },
+];
+
+async function readVersionFrom(source) {
+  const response = await fetch(source.url, { cache: 'no-cache' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const version = source.parse(await response.text());
+  if (!version) throw new Error('no version field');
+  return version;
+}
+
+/** Tries each source, reporting what happened to every one it had to touch. */
+export async function fetchLatestVersion() {
+  const attempts = [];
+
+  for (const source of UPDATE_SOURCES) {
+    try {
+      const version = await readVersionFrom(source);
+      attempts.push({ id: source.id, ok: true });
+      return { version, source: source.id, attempts };
+    } catch (error) {
+      attempts.push({ id: source.id, ok: false, reason: describe(error) });
+    }
   }
 
-  const remote = await response.json();
-  const latest = remote?.version;
-  if (!latest) throw new Error('The manifest on GitHub has no version field.');
+  const error = new Error(
+    `Could not reach GitHub. Tried ${attempts.length} sources: ` +
+      attempts.map((a) => `${a.id} (${a.reason})`).join(', ') +
+      '. A network that blocks these hosts is the usual cause.',
+  );
+  error.attempts = attempts;
+  throw error;
+}
 
-  return compareVersions(latest, installedVersion()) > 0 ? latest : null;
+/**
+ * `fetch` rejects with a bare "Failed to fetch" for DNS failures, blocked
+ * hosts, offline, and CORS alike, which tells the user nothing. Name the
+ * category at least.
+ */
+function describe(error) {
+  const message = String(error?.message ?? error);
+  if (message === 'Failed to fetch' || error?.name === 'TypeError') {
+    return navigator.onLine === false ? 'offline' : 'unreachable or blocked';
+  }
+  return message;
+}
+
+/**
+ * Returns the newer version string, or null when already current, alongside
+ * which source answered.
+ */
+export async function checkForUpdate() {
+  const { version, source, attempts } = await fetchLatestVersion();
+  return {
+    latest: compareVersions(version, installedVersion()) > 0 ? version : null,
+    remoteVersion: version,
+    source,
+    attempts,
+  };
 }

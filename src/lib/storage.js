@@ -23,6 +23,9 @@ export const DEFAULTS = {
   updateAvailable: null,
   updateCheckedAt: 0,
   updateError: null,
+  /** Which host answered the last successful check, for the Settings row. */
+  updateSource: null,
+  updateRemoteVersion: null,
   /** Remembered state of the "put the code in the comment" toggle. */
   shareCodeInComment: false,
   /* Settings */

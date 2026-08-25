@@ -29,7 +29,7 @@ import {
   parseProgramId,
   roomMarker,
 } from './lib/chat.js';
-import { checkForUpdate, compareVersions } from './lib/update.js';
+import { checkForUpdate, compareVersions, fetchLatestVersion } from './lib/update.js';
 import * as store from './lib/storage.js';
 
 /* ------------------------------ offscreen ------------------------------ */
@@ -327,11 +327,13 @@ async function leaveChat(id) {
 
 async function runUpdateCheck() {
   try {
-    const latest = await checkForUpdate();
+    const { latest, remoteVersion, source } = await checkForUpdate();
     const dismissed = await store.readOne('updateDismissedVersion');
 
     await store.write({
       updateAvailable: latest,
+      updateRemoteVersion: remoteVersion,
+      updateSource: source,
       updateCheckedAt: Date.now(),
       updateError: null,
       // "Not now" applies to one version only; a newer one speaks up again.
@@ -344,6 +346,7 @@ async function runUpdateCheck() {
     // Being offline is not worth shouting about; keep the last known answer.
     await store.write({
       updateCheckedAt: Date.now(),
+      updateSource: null,
       updateError: String(error.message ?? error),
     });
     return { version: await store.readOne('updateAvailable') };
@@ -387,6 +390,14 @@ async function diagnose(programInput) {
     const profile = await fetchProfile();
     if (!profile) throw new Error('no profile returned');
     return profile.nickname;
+  });
+
+  await step('Reach an update source', async () => {
+    const { source, attempts } = await fetchLatestVersion();
+    const failed = attempts.filter((a) => !a.ok);
+    return failed.length
+      ? `${source} (after ${failed.map((a) => a.id).join(', ')} failed)`
+      : source;
   });
 
   if (!programInput?.trim()) {

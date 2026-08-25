@@ -161,6 +161,12 @@ make sure you're signed in, then reopen the popup.
 **Creating a room fails.** There's a **Run a connection check** link under any
 error in the Chat tab. It tests each step and tells you which one failed.
 
+**Update checks fail.** The extension reads its version from
+raw.githubusercontent.com, falling back to api.github.com and then
+cdn.jsdelivr.net. School and workplace networks often block the first of those
+while leaving github.com alone. If all three are named in the error, the
+network is blocking them — everything else in the extension still works.
+
 **A room won't join.** Double-check the code, and make sure the program still
 exists and its comment hasn't been deleted.
 
@@ -185,7 +191,8 @@ it for an explanation.
   them
 - **Automatic messages** — turn off banners the extension raises on its own,
   like update notices
-- **Updates** — see the current state and check on demand
+- **Updates** — see the current state and check on demand. If a check fails it
+  names the hosts it tried rather than saying "Failed to fetch"
 - **Restore defaults** — resets this page only; your rooms and notifications
   are left alone
 
