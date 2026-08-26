@@ -45,17 +45,13 @@ let creatingOffscreen = null;
  * The offscreen document does two things a service worker cannot: keep the poll
  * timer running, and play audio.
  */
-async function ensureOffscreen({ verify = false } = {}) {
+async function hasOffscreen() {
   const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+  return existing.length > 0;
+}
 
-  if (existing.length) {
-    // Being listed is not the same as being alive: a document whose timer has
-    // stopped still shows up here, and that looked exactly like a slow poll.
-    if (!verify || (await offscreenResponds())) return;
-    await chrome.offscreen.closeDocument().catch(() => {});
-  }
-
-  // Concurrent callers must share one creation, or the second one throws.
+/** Creates the document, tolerating the race where something else just did. */
+async function createOffscreen() {
   if (!creatingOffscreen) {
     creatingOffscreen = chrome.offscreen
       .createDocument({
@@ -63,11 +59,27 @@ async function ensureOffscreen({ verify = false } = {}) {
         reasons: ['AUDIO_PLAYBACK'],
         justification: 'Polls for new notifications every few seconds and plays the alert chime.',
       })
+      .catch((error) => {
+        // "Only a single offscreen document may be created" means someone beat
+        // us to it, which is exactly what we wanted anyway.
+        if (!String(error?.message ?? error).includes('single offscreen document')) throw error;
+      })
       .finally(() => {
         creatingOffscreen = null;
       });
   }
   await creatingOffscreen;
+}
+
+async function ensureOffscreen() {
+  if (await hasOffscreen()) return;
+  await createOffscreen();
+}
+
+/** Closes whatever is there, listed or not, and builds a fresh one. */
+async function rebuildOffscreen() {
+  await chrome.offscreen.closeDocument().catch(() => {});
+  await createOffscreen();
 }
 
 /** Pings the offscreen document; false means it is there but not answering. */
@@ -89,15 +101,33 @@ async function offscreenResponds(timeoutMs = 1000) {
  * gap threw "receiving end does not exist", and the error was swallowed -- so
  * the sound simply never played. Wait until it actually answers.
  */
-async function offscreenReady() {
-  await ensureOffscreen();
-
-  for (let attempt = 0; attempt < 12; attempt++) {
+async function pingFor(ms) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
     if (await offscreenResponds(250)) return true;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  return false;
+}
 
-  console.warn('[KA Notify Me] offscreen document never became ready; no sound');
+/**
+ * Gets the audio player answering, rebuilding it if it will not.
+ *
+ * Chrome may reclaim an offscreen document that is not currently playing
+ * anything, and a reclaimed one can still be listed by getContexts. Trusting
+ * that listing meant pinging a document that no longer existed and concluding
+ * the player "would not start", which is exactly what happened: the only route
+ * back was a rebuild, and nothing ever asked for one.
+ */
+async function offscreenReady() {
+  await ensureOffscreen();
+  if (await pingFor(1200)) return true;
+
+  console.warn('[KA Notify Me] audio player not answering; rebuilding it');
+  await rebuildOffscreen();
+  if (await pingFor(3000)) return true;
+
+  console.error('[KA Notify Me] audio player still not answering after a rebuild');
   return false;
 }
 
@@ -122,7 +152,10 @@ async function playChime(source) {
   }
 
   if (!(await offscreenReady())) {
-    return { played: false, reason: 'the audio player would not start (offscreen document)' };
+    return {
+      played: false,
+      reason: 'the audio player could not be started, even after rebuilding it',
+    };
   }
 
   try {
@@ -1002,7 +1035,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   if (alarm.name !== KEEPALIVE_ALARM) return;
   // Revive the heartbeat first -- the worker may have been asleep for a while.
-  ensureOffscreen({ verify: true }).then(() => {
+  offscreenReady().then(() => {
     syncChatsNow();
     sync();
   });

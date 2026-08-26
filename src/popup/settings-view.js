@@ -260,14 +260,25 @@ export function setup(options = {}) {
     ui.alertResult.textContent = 'Playing…';
 
     const result = await send({ type: 'kanm:test-alert' });
-    const failed = !result?.ok || !result.played;
+    const muted = /switched off/.test(result?.reason ?? '');
 
-    ui.alertResult.textContent = !result?.ok
-      ? (result?.error ?? 'The test failed.')
-      : result.played
-        ? `Playing ${result.reason}. If you heard nothing, check your system volume.`
-        : `No sound: ${result.reason}`;
-    ui.alertResult.classList.toggle('setting-note--bad', failed);
+    if (result?.ok && result.played) {
+      ui.alertResult.textContent = `Playing ${result.reason}. If you heard nothing, check your system volume.`;
+      ui.alertResult.classList.remove('setting-note--bad');
+    } else if (muted) {
+      ui.alertResult.textContent = `No sound: ${result.reason}`;
+      ui.alertResult.classList.add('setting-note--bad');
+    } else {
+      // The background route failed. Play it from here instead, which tells
+      // you whether the problem is your audio or only that route.
+      const { soundName, volume } = await store.read('soundName', 'volume');
+      playPreview(soundName, volume);
+      ui.alertResult.textContent =
+        `Background player failed (${result?.reason ?? result?.error ?? 'unknown'}), ` +
+        'so this played from the popup instead. If you heard that, your audio is fine ' +
+        'and only alerts while the popup is shut are affected.';
+      ui.alertResult.classList.add('setting-note--bad');
+    }
 
     ui.testAlert.disabled = false;
   });

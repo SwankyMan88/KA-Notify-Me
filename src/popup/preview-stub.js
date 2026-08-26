@@ -256,9 +256,11 @@ globalThis.chrome = {
         return { ok: true, added: 0 };
       }
       if (message?.type === 'kanm:test-alert') {
-        return state.soundEnabled
-          ? { ok: true, played: true, reason: `playing ${state.soundName}` }
-          : { ok: true, played: false, reason: 'sound is switched off' };
+        if (!state.soundEnabled) return { ok: true, played: false, reason: 'sound is switched off' };
+        if (state.failAlert) {
+          return { ok: true, played: false, reason: 'the audio player could not be started' };
+        }
+        return { ok: true, played: true, reason: state.soundName };
       }
       if (message?.type === 'kanm:diagnose') {
         return {
