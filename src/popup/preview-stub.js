@@ -78,9 +78,9 @@ const state = {
   autoMessages: true,
   autoMarkRead: true,
   hideChatNotifications: true,
-  hideChatOnSite: false,
+  hideChatOnSite: true,
   clearChessOnEnd: true,
-  tidyOwnMessages: false,
+  tidyOwnMessages: true,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
@@ -256,7 +256,9 @@ globalThis.chrome = {
         return { ok: true, added: 0 };
       }
       if (message?.type === 'kanm:test-alert') {
-        return { ok: true, played: state.soundEnabled };
+        return state.soundEnabled
+          ? { ok: true, played: true, reason: `playing ${state.soundName}` }
+          : { ok: true, played: false, reason: 'sound is switched off' };
       }
       if (message?.type === 'kanm:diagnose') {
         return {

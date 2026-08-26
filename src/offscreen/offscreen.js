@@ -44,7 +44,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message?.type !== 'kanm:play-chime') return;
 
-  const audio = new Audio(chrome.runtime.getURL(`sounds/${message.sound ?? 'chime'}.wav`));
+  // Reported back rather than swallowed: "no sound" is impossible to diagnose
+  // when the one place that knows why keeps it to itself.
+  const url = chrome.runtime.getURL(`sounds/${message.sound ?? 'chime'}.wav`);
+  const audio = new Audio(url);
   audio.volume = Math.min(1, Math.max(0, message.volume ?? 0.6));
-  audio.play().catch((error) => console.warn('[KA Notify Me] could not play sound', error));
+
+  audio
+    .play()
+    .then(() => sendResponse({ played: true, url }))
+    .catch((error) => {
+      console.warn('[KA Notify Me] could not play sound', error);
+      sendResponse({ played: false, url, error: `${error.name}: ${error.message}` });
+    });
+
+  return true; // the response comes after play() settles
 });

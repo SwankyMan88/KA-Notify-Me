@@ -85,10 +85,10 @@ export const SOUNDS = [
   { value: 'ping', label: 'Ping' },
   { value: 'knock', label: 'Knock' },
   { value: 'marimba', label: 'Marimba' },
-  { value: 'droplet', label: 'Droplet (soft)' },
-  { value: 'hush', label: 'Hush (soft)' },
-  { value: 'drift', label: 'Drift (softest)' },
-  { value: 'felt', label: 'Felt (softest)' },
+  { value: 'droplet', label: 'Droplet' },
+  { value: 'hush', label: 'Hush' },
+  { value: 'drift', label: 'Drift' },
+  { value: 'felt', label: 'Felt' },
 ];
 
 /* --------------------------- posting restraint -------------------------- */

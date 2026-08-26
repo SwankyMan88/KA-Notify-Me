@@ -260,12 +260,14 @@ export function setup(options = {}) {
     ui.alertResult.textContent = 'Playing…';
 
     const result = await send({ type: 'kanm:test-alert' });
+    const failed = !result?.ok || !result.played;
+
     ui.alertResult.textContent = !result?.ok
       ? (result?.error ?? 'The test failed.')
       : result.played
-        ? 'Sent to the player. If you heard nothing, check your system volume.'
-        : 'Nothing played — sound is switched off above.';
-    ui.alertResult.classList.toggle('setting-note--bad', !result?.ok);
+        ? `Playing ${result.reason}. If you heard nothing, check your system volume.`
+        : `No sound: ${result.reason}`;
+    ui.alertResult.classList.toggle('setting-note--bad', failed);
 
     ui.testAlert.disabled = false;
   });

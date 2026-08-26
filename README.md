@@ -200,12 +200,14 @@ What the extension does instead, both on by default in Settings:
 - **Mark read when opened** clears their "new" flag whenever you open the popup,
   so the count stops building up
 
-**Hide rooms on the KA site** goes further, and is off by default. It filters
+**Hide rooms on the KA site** goes further, and is on by default. It filters
 room replies out of khanacademy.org's own notification menu, by intercepting
 that one API response as the page loads. It changes nothing on Khan Academy's
 servers — the notifications still exist, and turning the setting off shows them
 again. If the filter ever fails it hands the page back exactly what Khan Academy
-sent, so the site cannot break because of it.
+sent, so the site cannot break because of it. It also refuses to remove *every*
+notification on a page: matching all of them is far likelier to be a bug in the
+filter than the truth, so in that case it changes nothing.
 
 <br>
 

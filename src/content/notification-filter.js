@@ -75,6 +75,15 @@
     const kept = list.filter((n) => !shouldHide(n));
     if (kept.length === list.length) return null;
 
+    // A safety valve. If this ever matched everything -- a mistaken rule, an
+    // unexpected shape, a bad room key -- the page would show an empty
+    // notification list and look broken. Removing everything is far more likely
+    // to be our bug than the truth, so in that case change nothing.
+    if (kept.length === 0) {
+      console.warn('[KA Notify Me] filter matched every notification; leaving them alone');
+      return null;
+    }
+
     return {
       ...payload,
       data: {

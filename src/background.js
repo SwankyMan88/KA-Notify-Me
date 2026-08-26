@@ -112,23 +112,37 @@ async function playChime(source) {
   );
 
   // Muted on purpose is not a failure, but the caller still wants to know
-  // nothing was played.
-  if (!settings.soundEnabled) return false;
-  if (source === 'notifications' && !settings.soundOnNotifications) return false;
-  if (source === 'chat' && !settings.soundOnChat) return false;
+  // nothing was played, and why.
+  if (!settings.soundEnabled) return { played: false, reason: 'sound is switched off' };
+  if (source === 'notifications' && !settings.soundOnNotifications) {
+    return { played: false, reason: 'notification sounds are switched off' };
+  }
+  if (source === 'chat' && !settings.soundOnChat) {
+    return { played: false, reason: 'chat sounds are switched off' };
+  }
 
-  if (!(await offscreenReady())) return false;
+  if (!(await offscreenReady())) {
+    return { played: false, reason: 'the audio player would not start (offscreen document)' };
+  }
 
   try {
-    await chrome.runtime.sendMessage({
+    const reply = await chrome.runtime.sendMessage({
       type: 'kanm:play-chime',
       volume: settings.volume,
       sound: settings.soundName,
     });
-    return true;
+
+    if (reply?.played) return { played: true, reason: settings.soundName };
+
+    return {
+      played: false,
+      reason: reply?.error
+        ? `the player refused: ${reply.error}`
+        : 'the player did not answer',
+    };
   } catch (error) {
     console.warn('[KA Notify Me] could not deliver the sound', error);
-    return false;
+    return { played: false, reason: `could not reach the player: ${error.message}` };
   }
 }
 
@@ -1060,9 +1074,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return respond(sendResponse, () => leaveChat(message.id));
 
     case 'kanm:test-alert':
-      return respond(sendResponse, async () => ({
-        played: await playChime(message.source ?? 'notifications'),
-      }));
+      return respond(sendResponse, () => playChime(message.source ?? 'notifications'));
 
     case 'kanm:check-update':
       return respond(sendResponse, () => runUpdateCheck());
