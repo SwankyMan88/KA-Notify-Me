@@ -84,10 +84,14 @@
     };
   }
 
-  const nativeFetch = window.fetch;
+  // Bound to the window: a site calling a detached `fetch(url)` gives us an
+  // undefined `this`, and forwarding that to the real fetch throws "Illegal
+  // invocation" -- which would break every request we wrap rather than just
+  // failing to filter it.
+  const nativeFetch = window.fetch.bind(window);
 
   window.fetch = async function kanmFetch(...args) {
-    const response = await nativeFetch.apply(this, args);
+    const response = await nativeFetch(...args);
 
     try {
       if (!enabled) return response;
@@ -103,10 +107,16 @@
       const filtered = filterPayload(payload);
       if (!filtered) return response;
 
+      // content-encoding and content-length describe the body we just
+      // replaced, so copying them over would misdescribe the new one.
+      const headers = new Headers(response.headers);
+      headers.delete('content-encoding');
+      headers.delete('content-length');
+
       return new Response(JSON.stringify(filtered), {
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers,
+        headers,
       });
     } catch {
       // Never let this break the site: hand back exactly what Khan Academy sent.

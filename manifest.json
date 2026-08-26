@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "KA Notify Me",
   "short_name": "KA Notify Me",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Signs in with your Khan Academy session and rings you the moment a new notification lands.",
   "minimum_chrome_version": "116",
   "icons": {

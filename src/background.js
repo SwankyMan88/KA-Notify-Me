@@ -26,6 +26,7 @@ import {
   countUnread,
   decodeRoomCode,
   encodeRoomCode,
+  findChatForNotification,
   makeRoomId,
   membersFrom,
   parseProgramId,
@@ -68,7 +69,6 @@ async function ensureOffscreen({ verify = false } = {}) {
   await creatingOffscreen;
 }
 
-/** @param source 'notifications' | 'chat' */
 /** Pings the offscreen document; false means it is there but not answering. */
 async function offscreenResponds(timeoutMs = 1000) {
   try {
@@ -100,6 +100,7 @@ async function offscreenReady() {
   return false;
 }
 
+/** @param source 'notifications' | 'chat' */
 async function playChime(source) {
   const settings = await store.read(
     'soundEnabled',
@@ -145,22 +146,53 @@ async function paintBadge() {
 
 /* ---------------------------- notifications ---------------------------- */
 
+/**
+ * Whether a notification is worth storing at all.
+ *
+ * Filtering used to happen in the popup, after paging. That went wrong the
+ * moment a lot of chess was played: every notification fetched was a game
+ * message, all of them were filtered out on the way to the screen, and the list
+ * looked empty while paging thought it had plenty. Deciding here means what is
+ * stored is exactly what is shown, so paging and the unread count agree with it.
+ */
+function keepNotification(notification, chats, hideChat) {
+  // Game traffic is never a notification worth reading.
+  if (isGameMessage(notification.content)) return false;
+  if (hideChat && findChatForNotification(notification, chats)) return false;
+  return true;
+}
+
+/** Enough kept notifications to fill the panel without another round trip. */
+const MIN_KEPT = 15;
+const MAX_PAGES = 12;
+
 /** Walks back from the top until we have seen every brand-new notification. */
 async function collectNotifications() {
+  const { chats, hideChatNotifications } = await store.read('chats', 'hideChatNotifications');
+
   const collected = [];
   let cursor = '';
   let hasMore = true;
+  let sawRead = false;
 
-  while (collected.length < MAX_NOTIFICATIONS) {
-    const page = await fetchNotificationPage(cursor);
-    if (!page) break;
+  for (let page = 0; page < MAX_PAGES && collected.length < MAX_NOTIFICATIONS; page++) {
+    const batch = await fetchNotificationPage(cursor);
+    if (!batch) break;
 
-    collected.push(...page.notifications);
-    cursor = page.cursor;
+    collected.push(
+      ...batch.notifications.filter((n) => keepNotification(n, chats, hideChatNotifications)),
+    );
+
+    cursor = batch.cursor;
     hasMore = Boolean(cursor);
 
     // Once a page contains something already read, everything older is read too.
-    if (!cursor || page.notifications.some((n) => !n.brandNew)) break;
+    if (batch.notifications.some((n) => !n.brandNew)) sawRead = true;
+    if (!cursor) break;
+
+    // Keep going past a page that filtered away to nothing, or the list would
+    // be empty despite there being plenty to show underneath it.
+    if (sawRead && collected.length >= MIN_KEPT) break;
   }
 
   return { notifications: collected.slice(0, MAX_NOTIFICATIONS), cursor, hasMore };
@@ -181,9 +213,13 @@ async function loadMoreNotifications() {
     return { added: 0 };
   }
 
+  const { chats, hideChatNotifications } = await store.read('chats', 'hideChatNotifications');
+
   // Cursors can overlap across pages, so drop anything we already hold.
   const known = new Set(notifications.map((n) => n.urlsafeKey));
-  const fresh = page.notifications.filter((n) => !known.has(n.urlsafeKey));
+  const fresh = page.notifications.filter(
+    (n) => !known.has(n.urlsafeKey) && keepNotification(n, chats, hideChatNotifications),
+  );
   const merged = [...notifications, ...fresh];
 
   await store.write({

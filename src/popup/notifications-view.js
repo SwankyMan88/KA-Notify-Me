@@ -1,5 +1,4 @@
 import { findChatForNotification } from '../lib/chat.js';
-import { isGameMessage } from '../lib/chess-protocol.js';
 import { describe, linkFor, relativeTime } from './format.js';
 import { send } from './messaging.js';
 
@@ -137,16 +136,12 @@ function renderList(notifications, chats) {
 }
 
 /**
- * Chat replies arrive as ordinary Khan Academy notifications too. They are
- * already in the Chat menu, so by default they are kept out of this list.
+ * Chat and game traffic is already excluded by the background, which decides
+ * what to store. Filtering here as well is what made the list look empty while
+ * paging believed it was full.
  */
 function visible(state) {
-  // Game traffic is never worth showing as a notification, whatever the chat
-  // setting says -- "[chess] e2e4" is not a message anyone wants to read.
-  const withoutGames = state.notifications.filter((n) => !isGameMessage(n.content));
-
-  if (!state.hideChatNotifications) return withoutGames;
-  return withoutGames.filter((n) => !findChatForNotification(n, state.chats));
+  return state.notifications;
 }
 
 export function render(state) {
