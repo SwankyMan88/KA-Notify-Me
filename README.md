@@ -146,9 +146,19 @@ Open a room and press **♟**. One of you invites, the other accepts, and you pl
 in the popup.
 
 There is no server behind it. Every move travels as an ordinary chat message
-like `KANMCHESS e2e4`, and both sides rebuild the board by replaying the thread —
-so you always see the same position, and the game survives closing the popup.
-Those messages are hidden from the conversation and drawn as a board instead.
+carrying the whole game so far, like `KANMCHESS g e2e4,e7e5,g1f3`, and both sides
+rebuild the board by replaying it — so you always see the same position, and the
+game survives closing the popup. Those messages are hidden from the conversation
+and drawn as a board instead.
+
+Because each message contains the entire game, the one before it is redundant:
+moving deletes your previous move message, so a game leaves two messages in the
+thread rather than one per move.
+
+**There is a minute between your moves.** Each move is a real Khan Academy
+comment, and Khan Academy limits how fast an account may post — moving straight
+away looks like spam and can get commenting blocked. The board says how long is
+left, and the **i** beside it explains why.
 
 Because the thread is public, nothing is taken on trust: a move only counts if
 it is legal *and* comes from the player whose turn it is. Anyone else replying

@@ -80,6 +80,7 @@ const state = {
   hideChatNotifications: true,
   hideChatOnSite: false,
   clearChessOnEnd: true,
+  tidyOwnMessages: false,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
@@ -223,7 +224,7 @@ globalThis.chrome = {
     getManifest: () => ({ version: '1.0.0' }),
     sendMessage: async (message) => {
       // Echo a sent chat message back so the composer can be exercised.
-      if (message?.type === 'kanm:chat-send') {
+      if (message?.type === 'kanm:chat-send' || message?.type === 'kanm:chess-move') {
         const chat = state.chats.find((c) => c.id === message.id);
         chat.messages = [
           ...chat.messages,

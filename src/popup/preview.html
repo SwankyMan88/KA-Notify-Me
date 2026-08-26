@@ -122,6 +122,11 @@
         <div id="chess-panel" class="chess" hidden>
           <p id="chess-status" class="chess-status"></p>
           <div id="chess-board" class="board"></div>
+          <p id="chess-cooldown" class="cooldown" hidden>
+            <span class="cooldown-text"></span>
+            <button class="info" type="button" aria-label="Why the wait?"
+              data-tip="Each move is a real Khan Academy comment, and Khan Academy limits how fast an account may post. Moving straight away would look like spam and can get commenting blocked, so the board waits a minute between your moves."></button>
+          </p>
           <p id="chess-error" class="chess-error" hidden></p>
           <div id="chess-promo" class="promo" hidden></div>
           <div id="chess-actions" class="chess-actions"></div>
@@ -277,6 +282,15 @@
               data-tip="Chat replies also arrive as ordinary Khan Academy notifications. This keeps them out of the Notifications list, since they are already in Chat. It cannot stop Khan Academy creating them on its own site."></button>
           </span>
           <label class="switch"><input id="set-hide-chat-notifications" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Tidy my old messages
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Keeps only your 20 most recent messages in each room, deleting the older ones. It keeps a thread from filling up with your history. It does not let you post any faster — only the delay between moves does that."></button>
+          </span>
+          <label class="switch"><input id="set-tidy-own" type="checkbox" /><span></span></label>
         </div>
 
         <div class="setting">

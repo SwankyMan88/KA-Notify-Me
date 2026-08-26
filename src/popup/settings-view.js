@@ -24,6 +24,7 @@ const ui = {
   hideChatNotifications: el('set-hide-chat-notifications'),
   hideChatOnSite: el('set-hide-chat-site'),
   clearChess: el('set-clear-chess'),
+  tidyOwn: el('set-tidy-own'),
   testAlert: el('set-test-alert'),
   alertResult: el('set-alert-result'),
   updateState: el('set-update-state'),
@@ -47,6 +48,7 @@ const OWNED = [
   'hideChatNotifications',
   'hideChatOnSite',
   'clearChessOnEnd',
+  'tidyOwnMessages',
 ];
 
 let onClose = () => {};
@@ -134,6 +136,7 @@ export function render(state) {
   ui.hideChatNotifications.checked = state.hideChatNotifications;
   ui.hideChatOnSite.checked = state.hideChatOnSite;
   ui.clearChess.checked = state.clearChessOnEnd;
+  ui.tidyOwn.checked = state.tidyOwnMessages;
 
   for (const swatch of ui.accent.children) {
     swatch.setAttribute('aria-pressed', String(swatch.dataset.accent === state.accent));
@@ -222,6 +225,9 @@ export function setup(options = {}) {
   );
   ui.clearChess.addEventListener('change', () =>
     write({ clearChessOnEnd: ui.clearChess.checked }),
+  );
+  ui.tidyOwn.addEventListener('change', () =>
+    write({ tidyOwnMessages: ui.tidyOwn.checked }),
   );
 
   // Picking a sound plays it immediately -- that is how you choose one.

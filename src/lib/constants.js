@@ -90,3 +90,14 @@ export const SOUNDS = [
   { value: 'drift', label: 'Drift (softest)' },
   { value: 'felt', label: 'Felt (softest)' },
 ];
+
+/* --------------------------- posting restraint -------------------------- */
+
+/**
+ * Khan Academy rate-limits comment posting, and a burst looks like spam. A
+ * minute between your own moves keeps a game comfortably under that.
+ */
+export const MOVE_COOLDOWN_MS = 60_000;
+
+/** How many of your own messages a room keeps when tidying is switched on. */
+export const KEEP_RECENT_MESSAGES = 20;

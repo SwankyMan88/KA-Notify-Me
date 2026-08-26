@@ -1,6 +1,7 @@
 import {
   BADGE_COLOR,
   KEEPALIVE_ALARM,
+  KEEP_RECENT_MESSAGES,
   PROFILE_REFRESH_MS,
   MAX_NOTIFICATIONS,
   OFFSCREEN_PATH,
@@ -32,7 +33,7 @@ import {
   parseProgramId,
   roomMarker,
 } from './lib/chat.js';
-import { isGameMessage, readGame } from './lib/chess-protocol.js';
+import { isGameMessage, isMoveMessage, readGame } from './lib/chess-protocol.js';
 import { checkForUpdate, compareVersions, fetchLatestVersion } from './lib/update.js';
 import * as store from './lib/storage.js';
 
@@ -578,6 +579,80 @@ async function runUpdateCheck() {
   }
 }
 
+/* ---------------------------- message tidying --------------------------- */
+
+/** Deletes a list of your own messages and drops them from the stored room. */
+async function deleteOwn(chatId, messages) {
+  const gone = [];
+
+  for (const message of messages) {
+    try {
+      await deleteMessage(message.key);
+      gone.push(message.key);
+    } catch (error) {
+      console.warn('[KA Notify Me] could not delete a message', error);
+    }
+  }
+
+  if (!gone.length) return 0;
+
+  const removed = new Set(gone);
+  await withChats((current) =>
+    current.map((c) =>
+      c.id === chatId
+        ? { ...c, messages: (c.messages ?? []).filter((m) => !removed.has(m.key)) }
+        : c,
+    ),
+  );
+  return gone.length;
+}
+
+/**
+ * Keeps a room down to your most recent messages.
+ *
+ * Worth being clear about what this does and does not achieve: it keeps a
+ * thread from filling up with your history, which is what makes a room look
+ * like spam. It does not raise how fast you may post -- only posting less often
+ * does that, which is what the delay between moves is for.
+ */
+async function tidyOwnMessages(selfKaid) {
+  if (!selfKaid) return;
+  if (!(await store.readOne('tidyOwnMessages'))) return;
+
+  for (const chat of await store.readOne('chats')) {
+    const mine = (chat.messages ?? []).filter((m) => m.author?.kaid === selfKaid);
+    if (mine.length <= KEEP_RECENT_MESSAGES) continue;
+
+    // Newest kept, oldest removed.
+    const older = mine.slice(0, mine.length - KEEP_RECENT_MESSAGES);
+    await deleteOwn(chat.id, older);
+  }
+}
+
+/**
+ * Posts a move and removes the move message it supersedes.
+ *
+ * Every move message carries the whole game, so the previous one is redundant
+ * the moment this one lands -- and one message per player instead of one per
+ * move is the difference between a readable thread and a wall of them.
+ */
+async function sendChessMove(id, text) {
+  const selfKaid = (await store.readOne('profile'))?.kaid ?? null;
+
+  const before = (await store.readOne('chats')).find((c) => c.id === id);
+  // Move messages only. The invitation and acceptance define who is playing;
+  // deleting those would leave a thread of moves belonging to nobody.
+  const superseded = (before?.messages ?? []).filter(
+    (m) => m.author?.kaid === selfKaid && isMoveMessage(m.content),
+  );
+
+  await sendChatMessage(id, text);
+
+  // Only after the replacement is safely posted, never before.
+  const deleted = await deleteOwn(id, superseded);
+  return { deleted };
+}
+
 /* ------------------------------ chess tidy ------------------------------ */
 
 /**
@@ -789,6 +864,9 @@ async function runChatSync() {
   await tidyFinishedGames(profile?.kaid ?? null).catch((error) =>
     console.error('[KA Notify Me] tidying a finished game failed', error),
   );
+  await tidyOwnMessages(profile?.kaid ?? null).catch((error) =>
+    console.error('[KA Notify Me] tidying old messages failed', error),
+  );
 }
 
 function syncChatsNow() {
@@ -962,6 +1040,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:chat-join':
       return respond(sendResponse, async () => ({ chat: await joinChat(message.code) }));
+
+    case 'kanm:chess-move':
+      return respond(sendResponse, () => sendChessMove(message.id, message.text));
 
     case 'kanm:chat-send':
       return respond(sendResponse, () => sendChatMessage(message.id, message.text));

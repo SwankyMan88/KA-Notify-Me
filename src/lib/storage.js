@@ -44,6 +44,8 @@ export const DEFAULTS = {
   hideChatOnSite: false,
   /** Delete your own chess messages once a game finishes. */
   clearChessOnEnd: true,
+  /** Keep only your most recent messages in a room, deleting the rest. */
+  tidyOwnMessages: false,
   /** Clear the "new" flag when you open the popup, so nothing piles up. */
   autoMarkRead: true,
   /** Version the user pressed "Not now" on; cleared when a newer one lands. */

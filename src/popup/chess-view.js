@@ -6,11 +6,12 @@ import {
   rankOf,
   toAlgebraic,
 } from '../lib/chess.js';
+import { MOVE_COOLDOWN_MS } from '../lib/constants.js';
 import {
   encodeAccept,
   encodeDecline,
   encodeInvite,
-  encodeMove,
+  encodeMoves,
   encodeResign,
   isMyTurn,
   readGame,
@@ -26,6 +27,7 @@ const ui = {
   actions: el('chess-actions'),
   promo: el('chess-promo'),
   error: el('chess-error'),
+  cooldown: el('chess-cooldown'),
 };
 
 const GLYPHS = {
@@ -57,12 +59,54 @@ let selected = null;
 let targets = [];
 let pendingPromotion = null;
 
+/**
+ * When your own last move was posted. Khan Academy rate-limits comments and a
+ * fast exchange looks like spam, so the board is held for a minute afterwards.
+ */
+let lastMoveAt = 0;
+let cooldownTimer = null;
+
+function cooldownLeft() {
+  return Math.max(0, MOVE_COOLDOWN_MS - (Date.now() - lastMoveAt));
+}
+
+function drawCooldown() {
+  const left = cooldownLeft();
+
+  if (left <= 0) {
+    ui.cooldown.hidden = true;
+    if (cooldownTimer) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+    }
+    return;
+  }
+
+  ui.cooldown.hidden = false;
+  ui.cooldown.querySelector('.cooldown-text').textContent =
+    `You can move again in ${Math.ceil(left / 1000)}s`;
+
+  // One ticker, not one per render.
+  if (!cooldownTimer) {
+    cooldownTimer = setInterval(() => {
+      drawCooldown();
+      if (cooldownLeft() <= 0) paint();
+    }, 250);
+  }
+}
+
 /* --------------------------- what to draw ------------------------------- */
 
 /** The position on screen: the optimistic guess while it is ahead of the thread. */
 function shown() {
   if (game && optimistic && optimistic.moveCount > (game.moveCount ?? 0)) {
-    return { ...game, state: optimistic.state, lastMove: optimistic.uci, moveCount: optimistic.moveCount };
+    return {
+      ...game,
+      state: optimistic.state,
+      moves: optimistic.moves,
+      lastMove: optimistic.uci,
+      moveCount: optimistic.moveCount,
+    };
   }
   return game;
 }
@@ -87,12 +131,16 @@ async function post(text) {
  * message never lands.
  */
 async function postMove(uci, move) {
+  if (cooldownLeft() > 0) return;
+
   const previous = optimistic;
+  const previousMoveAt = lastMoveAt;
   const view = shown();
 
   optimistic = {
     state: applyMove(view.state, move),
     uci,
+    moves: [...(view.moves ?? []), uci],
     moveCount: (view.moveCount ?? 0) + 1,
   };
   pendingAnimation = { uci, captured: Boolean(view.state.board[move.to]) };
@@ -100,9 +148,12 @@ async function postMove(uci, move) {
   selected = null;
   targets = [];
   sendError = null;
+  lastMoveAt = Date.now();
   paint();
 
-  if ((await sendMessage(encodeMove(uci))) === false) {
+  // The whole game travels with every move, so the one it replaces can go.
+  if ((await sendMessage(encodeMoves(optimistic.moves), { chessMove: true })) === false) {
+    lastMoveAt = previousMoveAt;
     // Put the board back exactly as it was, and say why it moved back.
     optimistic = previous;
     pendingAnimation = null;
@@ -207,6 +258,7 @@ function onSquare(sq) {
   const view = shown();
   if (!view || view.phase !== 'playing' || pendingPromotion) return;
   if (!isMyTurn(view, selfKaid)) return;
+  if (cooldownLeft() > 0) return;
 
   const moves = legalMoves(view.state);
 
@@ -337,6 +389,7 @@ function drawActions() {
 
 function paint() {
   ui.status.textContent = statusLine();
+  drawCooldown();
   ui.error.textContent = sendError ?? '';
   ui.error.hidden = !sendError;
   drawBoard();

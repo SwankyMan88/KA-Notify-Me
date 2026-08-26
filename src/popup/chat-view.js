@@ -453,8 +453,12 @@ export function setup() {
   });
 
   chessView.setup({
-    onSend: async (text) => {
-      const result = await send({ type: 'kanm:chat-send', id: openRoomId, text });
+    onSend: async (text, { chessMove = false } = {}) => {
+      const result = await send({
+        type: chessMove ? 'kanm:chess-move' : 'kanm:chat-send',
+        id: openRoomId,
+        text,
+      });
       if (!result?.ok) {
         showError(ui.roomError, result?.error ?? 'Could not send that move.');
         return false;

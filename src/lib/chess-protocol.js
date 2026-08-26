@@ -30,6 +30,7 @@ const ACCEPT = /^accept$/i;
 const DECLINE = /^decline$/i;
 const RESIGN = /^resign$/i;
 const MOVE = /^([a-h][1-8][a-h][1-8][qrbn]?)$/i;
+const MOVES = /^g\s+((?:[a-h][1-8][a-h][1-8][qrbn]?)(?:,[a-h][1-8][a-h][1-8][qrbn]?)*)$/i;
 
 /**
  * Normalises before matching. Backslashes are dropped wholesale rather than
@@ -62,6 +63,9 @@ export function parseGameMessage(content) {
   if (ACCEPT.test(rest)) return { type: 'accept' };
   if (DECLINE.test(rest)) return { type: 'decline' };
   if (RESIGN.test(rest)) return { type: 'resign' };
+  if ((match = rest.match(MOVES))) {
+    return { type: 'moves', moves: match[1].toLowerCase().split(',') };
+  }
   if ((match = rest.match(MOVE))) return { type: 'move', uci: match[1].toLowerCase() };
 
   // Carries our marker but says something we do not understand. Still hidden,
@@ -75,8 +79,28 @@ export const encodeDecline = () => `${PREFIX} decline`;
 export const encodeResign = () => `${PREFIX} resign`;
 export const encodeMove = (uci) => `${PREFIX} ${uci}`;
 
+/**
+ * The whole game so far, in one message.
+ *
+ * Carrying only the latest move would mean the thread had to keep every
+ * message forever, since the board is rebuilt by replaying them. Carrying the
+ * full list makes each message self-sufficient, so a player can delete their
+ * previous one and still leave the game reconstructable.
+ */
+export const encodeMoves = (moves) => `${PREFIX} g ${moves.join(',')}`;
+
 export function isGameMessage(content) {
   return parseGameMessage(content) !== null;
+}
+
+/**
+ * Only a move message is made redundant by the next one. The invitation and the
+ * acceptance are structural -- delete those and the game has no players, so
+ * pruning must never touch them.
+ */
+export function isMoveMessage(content) {
+  const parsed = parseGameMessage(content);
+  return parsed?.type === 'moves' || parsed?.type === 'move';
 }
 
 /**
@@ -99,6 +123,17 @@ export function isGameMessage(content) {
  *                              // or from someone who is not a player
  * }}
  */
+/** Replays a move list from the start; null if any move in it is illegal. */
+function replay(moves) {
+  let state = newGame();
+  for (const uci of moves) {
+    const next = playMove(state, uci);
+    if (!next) return null;
+    state = next;
+  }
+  return state;
+}
+
 export function readGame(messages, selfKaid = null) {
   let game = null;
   let ignored = 0;
@@ -127,6 +162,7 @@ export function readGame(messages, selfKaid = null) {
         white: null,
         black: null,
         state: null,
+        moves: [],
         moveCount: 0,
         lastMove: null,
         result: null,
@@ -175,6 +211,49 @@ export function readGame(messages, selfKaid = null) {
       continue;
     }
 
+    if (parsed.type === 'moves') {
+      if (game.phase !== 'playing' || !isPlayer(author.kaid)) {
+        ignored++;
+        continue;
+      }
+
+      const replayed = replay(parsed.moves);
+
+      // Rejected unless it is a genuine continuation of what we already have:
+      // never shorter, and never rewriting a move that has already happened.
+      // That is what stops one player quietly editing the game's history.
+      if (
+        !replayed ||
+        parsed.moves.length <= game.moves.length ||
+        !game.moves.every((m, i) => m === parsed.moves[i])
+      ) {
+        ignored++;
+        continue;
+      }
+
+      // The poster must be whoever had the move when the last one was played.
+      const before = replay(parsed.moves.slice(0, -1));
+      const mover = before.turn === 'w' ? game.white : game.black;
+      if (author.kaid !== mover.kaid) {
+        ignored++;
+        continue;
+      }
+
+      game.moves = parsed.moves;
+      game.state = replayed;
+      game.moveCount = parsed.moves.length;
+      game.lastMove = parsed.moves.at(-1);
+
+      const done = status(replayed);
+      if (done.over) {
+        game.phase = 'over';
+        game.finished = true;
+        game.result = done.result;
+        game.reason = done.reason;
+      }
+      continue;
+    }
+
     if (parsed.type === 'move') {
       if (game.phase !== 'playing') {
         ignored++;
@@ -195,6 +274,7 @@ export function readGame(messages, selfKaid = null) {
       }
 
       game.state = next;
+      game.moves = [...game.moves, parsed.uci];
       game.moveCount++;
       game.lastMove = parsed.uci;
 
@@ -236,6 +316,7 @@ export function readGame(messages, selfKaid = null) {
     white: game.white,
     black: game.black,
     state: game.state,
+    moves: game.moves,
     moveCount: game.moveCount,
     lastMove: game.lastMove,
     result: live?.over ? live.result : game.result,
