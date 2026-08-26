@@ -19,6 +19,16 @@ const ui = {
 /** Keys currently in the DOM, so we can append instead of rebuilding. */
 let rendered = [];
 let loadingMore = false;
+
+/**
+ * Auto-loading exists so a first page too short to scroll still fills the
+ * panel. It is budgeted because `topUp` runs on every render, and with chat
+ * notifications filtered out the visible list can stay short while the stored
+ * list grows -- which had it fetching another page every single poll. Scrolling,
+ * or coming back to the tab, restores the budget.
+ */
+const AUTO_FILL_LIMIT = 3;
+let autoFills = 0;
 let openChat = () => {};
 /**
  * Keys that were unread when this popup opened. Auto-marking clears the flag on
@@ -177,12 +187,14 @@ export function render(state) {
 
 /* ---------------------------- infinite scroll --------------------------- */
 
-async function maybeLoadMore(state) {
+async function maybeLoadMore(state, { auto = false } = {}) {
   if (loadingMore || !state.hasMore || !state.signedIn) return;
+  if (auto && autoFills >= AUTO_FILL_LIMIT) return;
 
   const { scrollTop, clientHeight, scrollHeight } = ui.scroll;
   if (scrollHeight - (scrollTop + clientHeight) > 120) return;
 
+  if (auto) autoFills++;
   loadingMore = true;
   ui.sentinelText.textContent = 'Loading more…';
   try {
@@ -196,7 +208,15 @@ async function maybeLoadMore(state) {
 export function setup({ getState, onStatus, onOpenChat }) {
   openChat = onOpenChat;
 
-  ui.scroll.addEventListener('scroll', () => maybeLoadMore(getState()), { passive: true });
+  ui.scroll.addEventListener(
+    'scroll',
+    () => {
+      // A deliberate scroll is a fresh request for more.
+      autoFills = 0;
+      maybeLoadMore(getState());
+    },
+    { passive: true },
+  );
 
   ui.refresh.addEventListener('click', async () => {
     ui.refresh.disabled = true;
@@ -217,5 +237,10 @@ export function setup({ getState, onStatus, onOpenChat }) {
 
 /** Called after a render so a short first page still fills the panel. */
 export function topUp(state) {
-  maybeLoadMore(state);
+  maybeLoadMore(state, { auto: true });
+}
+
+/** Switching back to the tab is a fresh look, so allow filling again. */
+export function resetAutoFill() {
+  autoFills = 0;
 }

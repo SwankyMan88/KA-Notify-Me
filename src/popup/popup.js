@@ -199,7 +199,10 @@ async function render() {
 /* -------------------------------- setup -------------------------------- */
 
 ui.tabChat.addEventListener('click', () => selectTab('chat'));
-ui.tabNotifications.addEventListener('click', () => selectTab('notifications'));
+ui.tabNotifications.addEventListener('click', () => {
+  notificationsView.resetAutoFill();
+  selectTab('notifications');
+});
 
 ui.soundToggle.addEventListener('click', async () => {
   const { soundEnabled, soundName, volume } = await store.read(

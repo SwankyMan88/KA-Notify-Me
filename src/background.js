@@ -70,11 +70,11 @@ async function ensureOffscreen({ verify = false } = {}) {
 
 /** @param source 'notifications' | 'chat' */
 /** Pings the offscreen document; false means it is there but not answering. */
-async function offscreenResponds() {
+async function offscreenResponds(timeoutMs = 1000) {
   try {
     const reply = await Promise.race([
       chrome.runtime.sendMessage({ type: 'kanm:ping' }),
-      new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+      new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
     ]);
     return reply?.alive === true;
   } catch {
@@ -82,20 +82,52 @@ async function offscreenResponds() {
   }
 }
 
-async function playChime(source) {
-  const settings = await store.read('soundEnabled', 'volume', 'soundName', 'soundOnNotifications', 'soundOnChat');
-  if (!settings.soundEnabled) return;
-  if (source === 'notifications' && !settings.soundOnNotifications) return;
-  if (source === 'chat' && !settings.soundOnChat) return;
-
+/**
+ * createDocument resolves once the document exists, which is *before* its
+ * module has run and registered a message listener. Sending a chime into that
+ * gap threw "receiving end does not exist", and the error was swallowed -- so
+ * the sound simply never played. Wait until it actually answers.
+ */
+async function offscreenReady() {
   await ensureOffscreen();
-  chrome.runtime
-    .sendMessage({
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    if (await offscreenResponds(250)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  console.warn('[KA Notify Me] offscreen document never became ready; no sound');
+  return false;
+}
+
+async function playChime(source) {
+  const settings = await store.read(
+    'soundEnabled',
+    'volume',
+    'soundName',
+    'soundOnNotifications',
+    'soundOnChat',
+  );
+
+  // Muted on purpose is not a failure, but the caller still wants to know
+  // nothing was played.
+  if (!settings.soundEnabled) return false;
+  if (source === 'notifications' && !settings.soundOnNotifications) return false;
+  if (source === 'chat' && !settings.soundOnChat) return false;
+
+  if (!(await offscreenReady())) return false;
+
+  try {
+    await chrome.runtime.sendMessage({
       type: 'kanm:play-chime',
       volume: settings.volume,
       sound: settings.soundName,
-    })
-    .catch(() => {});
+    });
+    return true;
+  } catch (error) {
+    console.warn('[KA Notify Me] could not deliver the sound', error);
+    return false;
+  }
 }
 
 /* -------------------------------- badge -------------------------------- */
@@ -884,6 +916,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
     case 'kanm:chat-leave':
       return respond(sendResponse, () => leaveChat(message.id));
+
+    case 'kanm:test-alert':
+      return respond(sendResponse, async () => ({
+        played: await playChime(message.source ?? 'notifications'),
+      }));
 
     case 'kanm:check-update':
       return respond(sendResponse, () => runUpdateCheck());

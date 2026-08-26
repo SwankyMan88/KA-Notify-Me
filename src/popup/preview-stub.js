@@ -251,6 +251,12 @@ globalThis.chrome = {
         state.notifications = state.notifications.map((n) => ({ ...n, brandNew: false }));
         await chrome.storage.local.set({ notifications: state.notifications, unreadCount: 0 });
       }
+      if (message?.type === 'kanm:load-more') {
+        return { ok: true, added: 0 };
+      }
+      if (message?.type === 'kanm:test-alert') {
+        return { ok: true, played: state.soundEnabled };
+      }
       if (message?.type === 'kanm:diagnose') {
         return {
           ok: true,

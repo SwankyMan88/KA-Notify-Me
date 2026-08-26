@@ -243,7 +243,10 @@ network is blocking them — everything else in the extension still works.
 exists and its comment hasn't been deleted.
 
 **Everything is silent.** Check the bell button in the top-right of the popup
-isn't muted, and look under **Settings → Sound**.
+isn't muted, then use **Settings → Test the alert sound**. That plays through
+the background, the same path a real notification uses — the previews next to
+the sound picker play from the popup instead, so they can work while alerts do
+not.
 
 <br>
 

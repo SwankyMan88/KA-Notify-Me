@@ -24,6 +24,8 @@ const ui = {
   hideChatNotifications: el('set-hide-chat-notifications'),
   hideChatOnSite: el('set-hide-chat-site'),
   clearChess: el('set-clear-chess'),
+  testAlert: el('set-test-alert'),
+  alertResult: el('set-alert-result'),
   updateState: el('set-update-state'),
   checkUpdate: el('set-check-update'),
   reset: el('set-reset'),
@@ -245,6 +247,21 @@ export function setup(options = {}) {
     if (!loading && ui.sound.checked) {
       playPreview(ui.soundName.value, Number(ui.volume.value) / 100);
     }
+  });
+
+  ui.testAlert.addEventListener('click', async () => {
+    ui.testAlert.disabled = true;
+    ui.alertResult.textContent = 'Playing…';
+
+    const result = await send({ type: 'kanm:test-alert' });
+    ui.alertResult.textContent = !result?.ok
+      ? (result?.error ?? 'The test failed.')
+      : result.played
+        ? 'Sent to the player. If you heard nothing, check your system volume.'
+        : 'Nothing played — sound is switched off above.';
+    ui.alertResult.classList.toggle('setting-note--bad', !result?.ok);
+
+    ui.testAlert.disabled = false;
   });
 
   ui.checkUpdate.addEventListener('click', async () => {
