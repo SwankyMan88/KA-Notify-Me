@@ -35,9 +35,7 @@ function buildItem(notification, chat) {
   const { icon, title, body } = describe(notification);
 
   const classes = ['item'];
-  if (notification.brandNew || arrivedThisSession.has(notification.urlsafeKey)) {
-    classes.push('item--new');
-  }
+  if (looksNew(notification)) classes.push('item--new');
   if (chat) classes.push('item--chat');
 
   // A notification about one of your rooms opens the room; everything else is
@@ -95,11 +93,21 @@ function buildItem(notification, chat) {
  * the common case while scrolling -- a full rebuild would throw away the scroll
  * position mid-gesture.
  */
+function looksNew(notification) {
+  return notification.brandNew || arrivedThisSession.has(notification.urlsafeKey);
+}
+
 function renderList(notifications, chats) {
   const match = (n) => findChatForNotification(n, chats);
-  const keys = notifications.map((n) => `${n.urlsafeKey}:${match(n)?.id ?? ''}`);
+  const keys = notifications.map(
+    (n) => `${n.urlsafeKey}:${match(n)?.id ?? ''}:${looksNew(n) ? 1 : 0}`,
+  );
+
+  // Identical to what is already on screen: leave the DOM alone entirely.
+  if (keys.length === rendered.length && rendered.every((key, i) => key === keys[i])) return;
+
   const isExtension =
-    keys.length >= rendered.length && rendered.every((key, i) => key === keys[i]);
+    keys.length > rendered.length && rendered.every((key, i) => key === keys[i]);
 
   const fragment = document.createDocumentFragment();
 
@@ -157,7 +165,7 @@ export function render(state) {
 
   ui.empty.hidden = true;
   ui.list.hidden = false;
-  renderList(visible(state), state.chats);
+  renderList(shown, state.chats);
 
   ui.sentinel.hidden = false;
   ui.sentinelText.textContent = state.hasMore

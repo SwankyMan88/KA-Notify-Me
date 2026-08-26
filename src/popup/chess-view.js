@@ -1,4 +1,11 @@
-import { fileOf, legalMoves, rankOf, toAlgebraic } from '../lib/chess.js';
+import {
+  applyMove,
+  fileOf,
+  fromAlgebraic,
+  legalMoves,
+  rankOf,
+  toAlgebraic,
+} from '../lib/chess.js';
 import {
   encodeAccept,
   encodeDecline,
@@ -18,6 +25,7 @@ const ui = {
   board: el('chess-board'),
   actions: el('chess-actions'),
   promo: el('chess-promo'),
+  error: el('chess-error'),
 };
 
 const GLYPHS = {
@@ -25,27 +33,87 @@ const GLYPHS = {
   k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟',
 };
 
-let sendMessage = async () => {};
+const MOVE_MS = 190;
+
+/** @returns {Promise<boolean>} whether the message actually sent */
+let sendMessage = async () => false;
+
 let game = null;
 let selfKaid = null;
-/** Square the player has picked up, and where it may legally go. */
+
+/**
+ * A move is shown the instant you make it rather than after Khan Academy has
+ * accepted the message. This holds that guess; it is dropped as soon as the
+ * real thread catches up, and rolled back if the send failed.
+ */
+let optimistic = null;
+let sendError = null;
+
+/** The move still to be animated in, and the last one already animated. */
+let pendingAnimation = null;
+let animatedMove = null;
+
 let selected = null;
 let targets = [];
-/** Set while a promotion picker is waiting on a choice. */
 let pendingPromotion = null;
+
+/* --------------------------- what to draw ------------------------------- */
+
+/** The position on screen: the optimistic guess while it is ahead of the thread. */
+function shown() {
+  if (game && optimistic && optimistic.moveCount > (game.moveCount ?? 0)) {
+    return { ...game, state: optimistic.state, lastMove: optimistic.uci, moveCount: optimistic.moveCount };
+  }
+  return game;
+}
 
 /* -------------------------------- sending ------------------------------- */
 
 async function post(text) {
-  // Optimistically clear the selection so the board does not look stuck.
   selected = null;
   targets = [];
-  await sendMessage(text);
+  sendError = null;
+  paint();
+
+  if ((await sendMessage(text)) === false) {
+    sendError = 'That did not send. Try again.';
+    paint();
+  }
+}
+
+/**
+ * Plays the move locally first, then sends. Waiting on the round trip made
+ * every move feel like a stall; this shows it at once and puts it back if the
+ * message never lands.
+ */
+async function postMove(uci, move) {
+  const previous = optimistic;
+  const view = shown();
+
+  optimistic = {
+    state: applyMove(view.state, move),
+    uci,
+    moveCount: (view.moveCount ?? 0) + 1,
+  };
+  pendingAnimation = { uci, captured: Boolean(view.state.board[move.to]) };
+
+  selected = null;
+  targets = [];
+  sendError = null;
+  paint();
+
+  if ((await sendMessage(encodeMove(uci))) === false) {
+    // Put the board back exactly as it was, and say why it moved back.
+    optimistic = previous;
+    pendingAnimation = null;
+    animatedMove = null;
+    sendError = 'That move did not send — putting it back.';
+    paint();
+  }
 }
 
 /* --------------------------------- board -------------------------------- */
 
-/** Board is drawn from the mover's point of view, so your pieces are nearest. */
 function orientation() {
   return sideOf(game, selfKaid) === 'b' ? 'b' : 'w';
 }
@@ -56,7 +124,9 @@ function squaresInDrawOrder() {
 }
 
 function drawBoard() {
-  const state = game?.state;
+  const view = shown();
+  const state = view?.state;
+
   if (!state) {
     ui.board.replaceChildren();
     ui.board.hidden = true;
@@ -64,9 +134,7 @@ function drawBoard() {
   }
   ui.board.hidden = false;
 
-  const last = game.lastMove
-    ? [game.lastMove.slice(0, 2), game.lastMove.slice(2, 4)]
-    : [];
+  const last = view.lastMove ? [view.lastMove.slice(0, 2), view.lastMove.slice(2, 4)] : [];
 
   const cells = squaresInDrawOrder().map((sq) => {
     const cell = document.createElement('button');
@@ -99,29 +167,60 @@ function drawBoard() {
   });
 
   ui.board.replaceChildren(...cells);
+  runAnimation();
+}
+
+/**
+ * Slides the moved piece from where it was to where it now is.
+ *
+ * The board is rebuilt from scratch each time, so the piece is already in its
+ * final place: offset it back to the old square and let it travel forwards.
+ * Nothing here can fail visibly -- if the squares cannot be found the piece
+ * simply appears, which is what used to happen anyway.
+ */
+function runAnimation() {
+  const move = pendingAnimation;
+  pendingAnimation = null;
+  if (!move || !ui.board.isConnected) return;
+
+  const fromCell = ui.board.querySelector(`[data-square="${fromAlgebraic(move.uci.slice(0, 2))}"]`);
+  const toCell = ui.board.querySelector(`[data-square="${fromAlgebraic(move.uci.slice(2, 4))}"]`);
+  const piece = toCell?.querySelector('.piece');
+  if (!fromCell || !toCell || !piece) return;
+
+  const from = fromCell.getBoundingClientRect();
+  const to = toCell.getBoundingClientRect();
+  const dx = Math.round(from.left - to.left);
+  const dy = Math.round(from.top - to.top);
+  if (!dx && !dy) return;
+
+  piece.animate(
+    [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+    { duration: MOVE_MS, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' },
+  );
+
+  toCell.classList.add(move.captured ? 'sq--captured' : 'sq--landed');
+  setTimeout(() => toCell.classList.remove('sq--captured', 'sq--landed'), MOVE_MS + 220);
 }
 
 function onSquare(sq) {
-  if (!game || game.phase !== 'playing' || pendingPromotion) return;
-  if (!isMyTurn(game, selfKaid)) return;
+  const view = shown();
+  if (!view || view.phase !== 'playing' || pendingPromotion) return;
+  if (!isMyTurn(view, selfKaid)) return;
 
-  const moves = legalMoves(game.state);
+  const moves = legalMoves(view.state);
 
   if (selected !== null && targets.includes(sq)) {
     const options = moves.filter((m) => m.from === selected && m.to === sq);
-    const promotions = options.filter((m) => m.promotion);
-
-    if (promotions.length) {
+    if (options.some((m) => m.promotion)) {
       pendingPromotion = { from: selected, to: sq };
       renderPromotion();
       return;
     }
-
-    post(encodeMove(toAlgebraic(selected) + toAlgebraic(sq)));
+    postMove(toAlgebraic(selected) + toAlgebraic(sq), options[0]);
     return;
   }
 
-  // Picking up (or swapping to) one of your own pieces.
   const mine = moves.filter((m) => m.from === sq);
   if (mine.length) {
     selected = sq;
@@ -141,7 +240,9 @@ function renderPromotion() {
     return;
   }
 
-  const white = game.state.turn === 'w';
+  const view = shown();
+  const white = view.state.turn === 'w';
+
   ui.promo.hidden = false;
   ui.promo.replaceChildren(
     Object.assign(document.createElement('span'), {
@@ -158,7 +259,11 @@ function renderPromotion() {
         const { from, to } = pendingPromotion;
         pendingPromotion = null;
         ui.promo.hidden = true;
-        post(encodeMove(toAlgebraic(from) + toAlgebraic(to) + kind));
+
+        const move = legalMoves(shown().state).find(
+          (m) => m.from === from && m.to === to && m.promotion === kind,
+        );
+        postMove(toAlgebraic(from) + toAlgebraic(to) + kind, move);
       });
       return button;
     }),
@@ -168,34 +273,31 @@ function renderPromotion() {
 /* -------------------------------- status -------------------------------- */
 
 function statusLine() {
-  if (!game || game.phase === 'none') return 'No game yet.';
+  const view = shown();
+  if (!view || view.phase === 'none') return 'No game yet.';
 
-  if (game.phase === 'invited') {
-    return game.isMine
-      ? `Invitation sent — you as ${game.side === 'w' ? 'White' : 'Black'}.`
-      : `${game.inviter.nickname} wants to play, as ${game.side === 'w' ? 'White' : 'Black'}.`;
+  if (view.phase === 'invited') {
+    return view.isMine
+      ? `Invitation sent — you as ${view.side === 'w' ? 'White' : 'Black'}.`
+      : `${view.inviter.nickname} wants to play, as ${view.side === 'w' ? 'White' : 'Black'}.`;
   }
 
-  if (game.phase === 'declined') return 'That invitation was declined.';
+  if (view.phase === 'declined') return 'That invitation was declined.';
 
-  const me = sideOf(game, selfKaid);
-  const names = `${game.white.nickname} (White) v ${game.black.nickname} (Black)`;
+  const names = `${view.white.nickname} (White) v ${view.black.nickname} (Black)`;
 
-  if (game.phase === 'over') {
+  if (view.phase === 'over') {
+    const winner = view.result === 'white' ? view.white.nickname : view.black.nickname;
     const outcome =
-      game.result === 'draw'
-        ? `Draw by ${game.reason}`
-        : `${game.result === 'w' || game.result === 'white' ? game.white.nickname : game.black.nickname} wins by ${game.reason}`;
+      view.result === 'draw' ? `Draw by ${view.reason}` : `${winner} wins by ${view.reason}`;
     return `${outcome}. ${names}`;
   }
 
-  const turnName = game.state.turn === 'w' ? game.white.nickname : game.black.nickname;
-  const check = game.reason === 'check' ? ' — check!' : '';
+  const turnName = view.state.turn === 'w' ? view.white.nickname : view.black.nickname;
+  const check = view.reason === 'check' ? ' — check!' : '';
 
-  if (!me) return `${turnName} to move${check}. ${names}`;
-  return isMyTurn(game, selfKaid)
-    ? `Your move${check}.`
-    : `Waiting for ${turnName}${check}.`;
+  if (!sideOf(view, selfKaid)) return `${turnName} to move${check}. ${names}`;
+  return isMyTurn(view, selfKaid) ? `Your move${check}.` : `Waiting for ${turnName}${check}.`;
 }
 
 /* -------------------------------- actions ------------------------------- */
@@ -210,27 +312,38 @@ function action(label, text, kind = '') {
 }
 
 function drawActions() {
+  const view = shown();
+  const phase = view?.phase ?? 'none';
   const buttons = [];
-  const phase = game?.phase ?? 'none';
 
   if (phase === 'none' || phase === 'declined' || phase === 'over') {
     buttons.push(action('Play as White', encodeInvite('w')));
     buttons.push(action('Play as Black', encodeInvite('b')));
   } else if (phase === 'invited') {
-    if (game.isMine) {
+    if (view.isMine) {
       buttons.push(action('Cancel', encodeDecline(), 'chess-btn--quiet'));
     } else {
       buttons.push(action('Accept', encodeAccept()));
       buttons.push(action('Decline', encodeDecline(), 'chess-btn--quiet'));
     }
-  } else if (phase === 'playing' && sideOf(game, selfKaid)) {
+  } else if (phase === 'playing' && sideOf(view, selfKaid)) {
     buttons.push(action('Resign', encodeResign(), 'chess-btn--quiet'));
   }
 
   ui.actions.replaceChildren(...buttons);
 }
 
-/* --------------------------------- api ---------------------------------- */
+/* --------------------------------- paint -------------------------------- */
+
+function paint() {
+  ui.status.textContent = statusLine();
+  ui.error.textContent = sendError ?? '';
+  ui.error.hidden = !sendError;
+  drawBoard();
+  drawActions();
+}
+
+/* ---------------------------------- api --------------------------------- */
 
 export function isOpen() {
   return !ui.panel.hidden;
@@ -244,7 +357,6 @@ export function close() {
   ui.panel.hidden = true;
 }
 
-/** True when the room has a game worth flagging on the button. */
 export function hasGame(messages, kaid) {
   const g = readGame(messages, kaid);
   return g.phase === 'invited' || g.phase === 'playing';
@@ -254,18 +366,27 @@ export function render(chat, kaid) {
   selfKaid = kaid;
   const next = readGame(chat.messages, kaid);
 
-  // A new position invalidates whatever the player had picked up.
-  if (game?.moveCount !== next.moveCount || game?.phase !== next.phase) {
+  // Once the thread has caught up, the guess is no longer needed.
+  if (optimistic && (next.moveCount ?? 0) >= optimistic.moveCount) {
+    optimistic = null;
+    sendError = null;
+  }
+
+  // A move that arrived from the other player should slide in too.
+  if (next.lastMove && next.lastMove !== animatedMove && next.moveCount !== game?.moveCount) {
+    if (!optimistic) pendingAnimation = { uci: next.lastMove, captured: false };
+    animatedMove = next.lastMove;
+  }
+
+  if (game?.phase !== next.phase || game?.moveCount !== next.moveCount) {
     selected = null;
     targets = [];
     pendingPromotion = null;
     ui.promo.hidden = true;
   }
-  game = next;
 
-  ui.status.textContent = statusLine();
-  drawBoard();
-  drawActions();
+  game = next;
+  paint();
 }
 
 export function setup({ onSend }) {

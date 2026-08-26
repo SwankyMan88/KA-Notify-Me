@@ -42,6 +42,8 @@ export const DEFAULTS = {
   hideChatNotifications: true,
   /** Also filter room replies out of khanacademy.org's own notification menu. */
   hideChatOnSite: false,
+  /** Delete your own chess messages once a game finishes. */
+  clearChessOnEnd: true,
   /** Clear the "new" flag when you open the popup, so nothing piles up. */
   autoMarkRead: true,
   /** Version the user pressed "Not now" on; cleared when a newer one lands. */

@@ -122,6 +122,7 @@
         <div id="chess-panel" class="chess" hidden>
           <p id="chess-status" class="chess-status"></p>
           <div id="chess-board" class="board"></div>
+          <p id="chess-error" class="chess-error" hidden></p>
           <div id="chess-promo" class="promo" hidden></div>
           <div id="chess-actions" class="chess-actions"></div>
         </div>
@@ -266,6 +267,15 @@
               data-tip="Chat replies also arrive as ordinary Khan Academy notifications. This keeps them out of the Notifications list, since they are already in Chat. It cannot stop Khan Academy creating them on its own site."></button>
           </span>
           <label class="switch"><input id="set-hide-chat-notifications" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Clear chess when a game ends
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Deletes your own chess messages from the thread once a game finishes. Khan Academy only lets you delete your own posts, so your opponent's half disappears when their copy does the same."></button>
+          </span>
+          <label class="switch"><input id="set-clear-chess" type="checkbox" /><span></span></label>
         </div>
 
         <div class="setting">

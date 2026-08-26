@@ -162,6 +162,15 @@ the room is free for anyone to start the next one.
 Opening the board hides the conversation; press **♟** again to go back. Move
 messages never appear in the chat, the room list, or your notifications.
 
+Pieces slide when they move, and your move appears the moment you make it
+rather than after Khan Academy has accepted the message. If the message fails
+to send, the piece goes back where it was and the board says so.
+
+When a game finishes, each side deletes its own chess messages from the thread,
+so the conversation is left as it was. Khan Academy only lets you delete your
+own posts, so your opponent's half disappears when their copy next polls. Turn
+it off under **Settings → Clear chess when a game ends**.
+
 Full rules — castling, en passant, promotion, check, checkmate, stalemate, the
 fifty-move rule and insufficient material. The move generator is verified
 against standard perft counts rather than by eye.

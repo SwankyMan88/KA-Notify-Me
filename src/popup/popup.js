@@ -129,6 +129,39 @@ function renderUpdate(state) {
 
 /* -------------------------------- render ------------------------------- */
 
+/**
+ * One render per frame, never two at once.
+ *
+ * A single poll writes storage several times over -- chats, then notifications,
+ * cursor, profile, lastSync -- and every write fired its own async render.
+ * Those interleaved: each read storage at a different moment and wrote the DOM
+ * out of order, which is what made the list flicker and flip between states.
+ */
+let renderQueued = false;
+let renderRunning = null;
+
+/**
+ * A timer rather than requestAnimationFrame: rAF does not run while a document
+ * is not being painted, which would leave the popup silently stale. 30ms is
+ * long enough to swallow one poll's burst of writes and short enough not to be
+ * noticed.
+ */
+const RENDER_DEBOUNCE_MS = 30;
+
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+
+  setTimeout(async () => {
+    renderQueued = false;
+    // Wait for a render already in flight rather than racing it.
+    if (renderRunning) await renderRunning.catch(() => {});
+    renderRunning = render().finally(() => {
+      renderRunning = null;
+    });
+  }, RENDER_DEBOUNCE_MS);
+}
+
 async function render() {
   const state = await store.read();
   latestState = state;
@@ -254,7 +287,7 @@ async function autoMarkRead() {
 }
 
 // The background writes straight to storage, so watching it keeps the popup live.
-chrome.storage.onChanged.addListener(render);
+chrome.storage.onChanged.addListener(scheduleRender);
 
 settingsView.applyAppearance(await store.read('theme', 'accent'));
 await chatView.restore();

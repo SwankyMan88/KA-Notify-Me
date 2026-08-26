@@ -31,6 +31,7 @@ import {
   parseProgramId,
   roomMarker,
 } from './lib/chat.js';
+import { isGameMessage, readGame } from './lib/chess-protocol.js';
 import { checkForUpdate, compareVersions, fetchLatestVersion } from './lib/update.js';
 import * as store from './lib/storage.js';
 
@@ -509,6 +510,59 @@ async function runUpdateCheck() {
   }
 }
 
+/* ------------------------------ chess tidy ------------------------------ */
+
+/**
+ * Clears a finished game's messages out of the thread.
+ *
+ * Khan Academy only lets you delete your own posts, so each player can remove
+ * their own half. Both sides run this, so between them the game disappears --
+ * but until your opponent's extension has also polled, some of their moves are
+ * still there. Runs once per finished game, tracked by a signature, so a poll
+ * every few seconds does not retry deletions forever.
+ */
+async function tidyFinishedGames(selfKaid) {
+  if (!selfKaid) return;
+  if (!(await store.readOne('clearChessOnEnd'))) return;
+
+  const chats = await store.readOne('chats');
+
+  for (const chat of chats) {
+    const game = readGame(chat.messages, selfKaid);
+    if (game.phase !== 'over') continue;
+
+    const signature = `${game.moveCount}:${game.result}:${game.reason}`;
+    if (chat.chessCleared === signature) continue;
+
+    const mine = (chat.messages ?? []).filter(
+      (m) => isGameMessage(m.content) && m.author?.kaid === selfKaid,
+    );
+
+    const removed = [];
+    for (const message of mine) {
+      try {
+        await deleteMessage(message.key);
+        removed.push(message.key);
+      } catch (error) {
+        console.warn('[KA Notify Me] could not delete a finished game message', error);
+      }
+    }
+
+    const gone = new Set(removed);
+    await withChats((current) =>
+      current.map((c) =>
+        c.id === chat.id
+          ? {
+              ...c,
+              chessCleared: signature,
+              messages: (c.messages ?? []).filter((m) => !gone.has(m.key)),
+            }
+          : c,
+      ),
+    );
+  }
+}
+
 /* ----------------------------- diagnostics ----------------------------- */
 
 /**
@@ -637,6 +691,11 @@ async function runChatSync() {
 
   await paintBadge();
   if (somethingNew) await playChime('chat');
+
+  // After the messages are up to date, not before, or the game looks unfinished.
+  await tidyFinishedGames(profile?.kaid ?? null).catch((error) =>
+    console.error('[KA Notify Me] tidying a finished game failed', error),
+  );
 }
 
 function syncChatsNow() {

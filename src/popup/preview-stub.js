@@ -79,6 +79,7 @@ const state = {
   autoMarkRead: true,
   hideChatNotifications: true,
   hideChatOnSite: false,
+  clearChessOnEnd: true,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
