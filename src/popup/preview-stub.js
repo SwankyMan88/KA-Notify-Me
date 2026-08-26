@@ -9,8 +9,8 @@ const me = 'kaid_self';
 const chessLog = [
   ['kaid_buddy', 'Ada Lovelace', '[chess] invite w'],
   ['kaid_self', 'Colin', '[chess] accept'],
-  ['kaid_buddy', 'Ada Lovelace', '[chess] e2e4'],
-  ['kaid_self', 'Colin', '[chess] e7e5'],
+  ['kaid_buddy', 'Ada Lovelace', String.raw`\[chess\] e2e4`],
+  ['kaid_self', 'Colin', String.raw`\[chess\] e7e5`],
   ['kaid_buddy', 'Ada Lovelace', '[chess] g1f3'],
 ].map(([kaid, nickname, content], i) => ({
   key: `c${i}`,

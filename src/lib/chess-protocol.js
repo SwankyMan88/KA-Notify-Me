@@ -19,9 +19,23 @@ const DECLINE = /^\[chess\]\s+decline$/i;
 const RESIGN = /^\[chess\]\s+resign$/i;
 const MOVE = /^\[chess\]\s+([a-h][1-8][a-h][1-8][qrbn]?)$/i;
 
+/**
+ * Khan Academy stores comments as markdown, so a posted "[chess] e2e4" can come
+ * back as "\[chess\] e2e4" -- the brackets escaped. Your own optimistic copy
+ * is the raw text and matched fine, while the server's echo did not, which is
+ * why a game message could hide for you and show for everyone else. Strip the
+ * escapes and any invisible characters before matching.
+ */
+export function normaliseGameText(content) {
+  return String(content ?? '')
+    .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, ' ')
+    .replace(/\\([[\]\\*_`~])/g, '$1')
+    .trim();
+}
+
 /** Recognises a game message so the chat view can keep it out of the bubbles. */
 export function parseGameMessage(content) {
-  const text = String(content ?? '').trim();
+  const text = normaliseGameText(content);
   if (!text.toLowerCase().startsWith(PREFIX)) return null;
 
   let match;

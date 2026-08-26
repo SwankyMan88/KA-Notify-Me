@@ -34,7 +34,14 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.pollSeconds) applySettings();
 });
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Proof of life for the worker, which cannot otherwise tell a running timer
+  // from a document that is merely still listed.
+  if (message?.type === 'kanm:ping') {
+    sendResponse({ alive: true, seconds: currentSeconds });
+    return;
+  }
+
   if (message?.type !== 'kanm:play-chime') return;
 
   const audio = new Audio(chrome.runtime.getURL(`sounds/${message.sound ?? 'chime'}.wav`));

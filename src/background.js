@@ -42,9 +42,15 @@ let creatingOffscreen = null;
  * The offscreen document does two things a service worker cannot: keep the poll
  * timer running, and play audio.
  */
-async function ensureOffscreen() {
+async function ensureOffscreen({ verify = false } = {}) {
   const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
-  if (existing.length) return;
+
+  if (existing.length) {
+    // Being listed is not the same as being alive: a document whose timer has
+    // stopped still shows up here, and that looked exactly like a slow poll.
+    if (!verify || (await offscreenResponds())) return;
+    await chrome.offscreen.closeDocument().catch(() => {});
+  }
 
   // Concurrent callers must share one creation, or the second one throws.
   if (!creatingOffscreen) {
@@ -62,6 +68,19 @@ async function ensureOffscreen() {
 }
 
 /** @param source 'notifications' | 'chat' */
+/** Pings the offscreen document; false means it is there but not answering. */
+async function offscreenResponds() {
+  try {
+    const reply = await Promise.race([
+      chrome.runtime.sendMessage({ type: 'kanm:ping' }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+    ]);
+    return reply?.alive === true;
+  } catch {
+    return false;
+  }
+}
+
 async function playChime(source) {
   const settings = await store.read('soundEnabled', 'volume', 'soundName', 'soundOnNotifications', 'soundOnChat');
   if (!settings.soundEnabled) return;
@@ -739,7 +758,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   if (alarm.name !== KEEPALIVE_ALARM) return;
   // Revive the heartbeat first -- the worker may have been asleep for a while.
-  ensureOffscreen().then(() => {
+  ensureOffscreen({ verify: true }).then(() => {
     syncChatsNow();
     sync();
   });

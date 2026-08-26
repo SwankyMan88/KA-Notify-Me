@@ -45,13 +45,31 @@
     return Boolean(key) && roomKeys.has(key);
   }
 
+  /**
+   * A game message is recognisable from its own text, with no key matching at
+   * all -- which is the only thing that works when a reply arrives before the
+   * extension has learned its key. Khan Academy stores comments as markdown, so
+   * the brackets can come back escaped.
+   */
+  function looksLikeGameMessage(content) {
+    const text = String(content || "")
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, " ")
+      .replace(/\\([[\]\\*_`~])/g, "$1")
+      .trim()
+      .toLowerCase();
+    return text.startsWith("[chess]");
+  }
+
+  function shouldHide(notification) {
+    return looksLikeGameMessage(notification && notification.content) || belongsToRoom(notification);
+  }
   /** Returns a filtered copy, or null when there is nothing to change. */
   function filterPayload(payload) {
     const feed = payload?.data?.user?.notifications;
     const list = feed?.notifications;
     if (!Array.isArray(list) || !list.length) return null;
 
-    const kept = list.filter((n) => !belongsToRoom(n));
+    const kept = list.filter((n) => !shouldHide(n));
     if (kept.length === list.length) return null;
 
     return {
@@ -72,7 +90,7 @@
     const response = await nativeFetch.apply(this, args);
 
     try {
-      if (!enabled || !roomKeys.size) return response;
+      if (!enabled) return response;
 
       const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url ?? '');
       if (!url.includes(OPERATION)) return response;

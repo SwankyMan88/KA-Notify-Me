@@ -140,6 +140,7 @@ async function render() {
   renderHeader(state);
   renderStatus(state);
   renderUpdate(state);
+  schedulePolling(state.pollSeconds);
 
   const signedOut = state.loaded && !state.signedIn;
   ui.signedOut.hidden = !signedOut;
@@ -212,6 +213,30 @@ notificationsView.setup({
 chatView.setup();
 settingsView.setup({ onOpen: () => render(), onClose: () => render() });
 tooltip.setup();
+
+/**
+ * While the popup is open it drives its own refresh, at the interval from
+ * Settings.
+ *
+ * The background does poll on its own, but its timer lives in an offscreen
+ * document and its worker is torn down whenever Chrome feels like it, so the
+ * cadence you actually see could be far longer than the setting. The popup is
+ * an ordinary live document: a plain setInterval here always fires, and it does
+ * exactly what the Refresh button does.
+ */
+let pollTimer = null;
+let pollSeconds = null;
+
+function schedulePolling(seconds) {
+  if (seconds === pollSeconds) return;
+  pollSeconds = seconds;
+
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    send({ type: 'kanm:chat-refresh' });
+    send({ type: 'kanm:sync' });
+  }, seconds * 1000);
+}
 
 /**
  * Opening the popup counts as reading. The keys are remembered first so the
