@@ -3,6 +3,7 @@ import {
   KEEPALIVE_ALARM,
   GLOBAL_ROOM,
   GLOBAL_ROOM_LIMIT,
+  DEFAULT_POLL_SECONDS,
   KEEP_RECENT_MESSAGES,
   PROFILE_REFRESH_MS,
   MAX_NOTIFICATIONS,
@@ -110,6 +111,12 @@ async function offscreenResponds(timeoutMs = 1000) {
  * gap threw "receiving end does not exist", and the error was swallowed -- so
  * the sound simply never played. Wait until it actually answers.
  */
+/** Tells the document how often to beat. It cannot read that for itself. */
+async function pushPollInterval() {
+  const seconds = (await store.readOne('pollSeconds')) || DEFAULT_POLL_SECONDS;
+  await chrome.runtime.sendMessage({ type: 'kanm:set-poll', seconds }).catch(() => {});
+}
+
 async function pingFor(ms) {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -140,7 +147,10 @@ async function offscreenReady() {
     if (failure) return { ok: false, trace };
   }
 
-  if (await pingFor(1200)) return { ok: true, trace: [...trace, 'answered'] };
+  if (await pingFor(1200)) {
+    await pushPollInterval();
+    return { ok: true, trace: [...trace, 'answered'] };
+  }
   trace.push('no answer');
 
   // Chrome can reclaim a document that is not currently playing anything, and
@@ -153,7 +163,10 @@ async function offscreenReady() {
   trace.push(createFailure ? `rebuild failed: ${createFailure}` : 'rebuilt');
   if (createFailure) return { ok: false, trace };
 
-  if (await pingFor(3000)) return { ok: true, trace: [...trace, 'answered'] };
+  if (await pingFor(3000)) {
+    await pushPollInterval();
+    return { ok: true, trace: [...trace, 'answered'] };
+  }
 
   trace.push('still no answer');
   console.error('[KA Notify Me] audio player unreachable:', trace.join(' -> '));
@@ -1193,6 +1206,11 @@ function respond(sendResponse, work) {
     .catch((error) => sendResponse({ ok: false, error: String(error.message ?? error) }));
   return true;
 }
+
+// The offscreen document cannot watch storage itself, so the worker relays.
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.pollSeconds) pushPollInterval();
+});
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message?.type) {
