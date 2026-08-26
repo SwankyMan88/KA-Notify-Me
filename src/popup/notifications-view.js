@@ -1,4 +1,5 @@
 import { findChatForNotification } from '../lib/chat.js';
+import { isGameMessage } from '../lib/chess-protocol.js';
 import { describe, linkFor, relativeTime } from './format.js';
 import { send } from './messaging.js';
 
@@ -122,8 +123,12 @@ function renderList(notifications, chats) {
  * already in the Chat menu, so by default they are kept out of this list.
  */
 function visible(state) {
-  if (!state.hideChatNotifications) return state.notifications;
-  return state.notifications.filter((n) => !findChatForNotification(n, state.chats));
+  // Game traffic is never worth showing as a notification, whatever the chat
+  // setting says -- "[chess] e2e4" is not a message anyone wants to read.
+  const withoutGames = state.notifications.filter((n) => !isGameMessage(n.content));
+
+  if (!state.hideChatNotifications) return withoutGames;
+  return withoutGames.filter((n) => !findChatForNotification(n, state.chats));
 }
 
 export function render(state) {

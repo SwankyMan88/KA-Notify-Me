@@ -43,6 +43,7 @@ const ui = {
   renameSave: el('rename-save'),
   roomNameInput: el('room-name-input'),
   messages: el('messages'),
+  chessPanel: el('chess-panel'),
   roomError: el('room-error'),
   composer: el('composer'),
   input: el('composer-input'),
@@ -130,6 +131,14 @@ function buildRoomRow(chat) {
   wrapper.append(row);
   row.addEventListener('click', () => openRoom(chat.id));
   return wrapper;
+}
+
+/** With the board open, the message list and composer step aside. */
+function applyChessLayout() {
+  const playing = chessView.isOpen();
+  ui.messages.hidden = playing;
+  ui.composer.hidden = playing;
+  ui.chessBtn.setAttribute('aria-pressed', String(playing));
 }
 
 function renderHome(chats) {
@@ -246,6 +255,9 @@ function renderRoom(chat, selfKaid) {
   chessView.render(chat, selfKaid);
   ui.chessDot.hidden = !chessView.hasGame(chat.messages, selfKaid) || chessView.isOpen();
 
+  // The board takes over the room rather than sitting on top of the chat.
+  applyChessLayout();
+
   const visible = chatMessages(chat);
 
   // Redrawing on every poll would fight the scroll position and text selection.
@@ -284,6 +296,7 @@ async function openRoom(id) {
 
 function closeRoom() {
   chessView.close();
+  applyChessLayout();
   openRoomId = null;
   store.write({ activeChatId: null });
 }
@@ -431,9 +444,11 @@ export function setup() {
   ui.chessBtn.addEventListener('click', () => {
     chessView.toggle();
     ui.options.hidden = true;
+    applyChessLayout();
     if (latestChat) {
       chessView.render(latestChat, latestSelfKaid);
-      ui.chessDot.hidden = !chessView.hasGame(latestChat.messages, latestSelfKaid) || chessView.isOpen();
+      ui.chessDot.hidden =
+        !chessView.hasGame(latestChat.messages, latestSelfKaid) || chessView.isOpen();
     }
   });
 

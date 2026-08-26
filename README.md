@@ -154,6 +154,14 @@ Because the thread is public, nothing is taken on trust: a move only counts if
 it is legal *and* comes from the player whose turn it is. Anyone else replying
 in the thread is ignored, including someone trying to resign on your behalf.
 
+**A game is between exactly two people.** Once someone accepts, the pair is
+fixed — a third person cannot accept afterwards, cannot move, and cannot start
+their own game in the middle of yours. When the game finishes, by any means,
+the room is free for anyone to start the next one.
+
+Opening the board hides the conversation; press **♟** again to go back. Move
+messages never appear in the chat, the room list, or your notifications.
+
 Full rules — castling, en passant, promotion, check, checkmate, stalemate, the
 fifty-move rule and insufficient material. The move generator is verified
 against standard perft counts rather than by eye.

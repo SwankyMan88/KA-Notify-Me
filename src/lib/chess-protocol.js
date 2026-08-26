@@ -49,126 +49,165 @@ export function isGameMessage(content) {
 /**
  * Rebuilds the current game from a room's messages.
  *
+ * Read forwards rather than by hunting for the last invitation, because
+ * whether an invitation counts depends on what came before it: **a game is
+ * between exactly two people**, and while one is running only those two can
+ * start the next. A third person posting an invitation into the middle of a
+ * game is ignored, and once someone has accepted, the pair is fixed.
+ *
  * @returns {{
  *   phase: 'none'|'invited'|'declined'|'playing'|'over',
  *   white, black,              // author objects
- *   state,                     // chess position, when playing or over
+ *   state,                     // chess position, once playing
  *   moveCount, lastMove,
  *   result, reason,            // when over
- *   inviter, side,             // when invited
- *   ignored                    // moves rejected as illegal or out of turn
+ *   inviter, side, isMine,     // when invited
+ *   ignored                    // messages rejected as illegal, out of turn,
+ *                              // or from someone who is not a player
  * }}
  */
 export function readGame(messages, selfKaid = null) {
-  const tagged = (messages ?? [])
-    .map((m) => ({ message: m, parsed: parseGameMessage(m.content) }))
-    .filter((x) => x.parsed);
-
-  // Only the most recent invitation matters; earlier games are history.
-  let start = -1;
-  for (let i = tagged.length - 1; i >= 0; i--) {
-    if (tagged[i].parsed.type === 'invite') {
-      start = i;
-      break;
-    }
-  }
-  if (start === -1) return { phase: 'none' };
-
-  const invite = tagged[start];
-  const inviter = invite.message.author;
-
-  // The reply has to come from someone else -- you cannot accept your own game.
-  let accepted = null;
-  let declined = false;
-  for (let i = start + 1; i < tagged.length; i++) {
-    const { parsed, message } = tagged[i];
-    if (parsed.type === 'accept' && message.author.kaid !== inviter.kaid) {
-      accepted = tagged[i];
-      break;
-    }
-    if (parsed.type === 'decline') {
-      declined = true;
-      break;
-    }
-  }
-
-  if (declined) return { phase: 'declined', inviter, side: invite.parsed.side };
-  if (!accepted) {
-    return {
-      phase: 'invited',
-      inviter,
-      side: invite.parsed.side,
-      isMine: selfKaid !== null && inviter.kaid === selfKaid,
-    };
-  }
-
-  const white = invite.parsed.side === 'w' ? inviter : accepted.message.author;
-  const black = invite.parsed.side === 'w' ? accepted.message.author : inviter;
-
-  let state = newGame();
-  let moveCount = 0;
-  let lastMove = null;
+  let game = null;
   let ignored = 0;
-  let resignedBy = null;
 
-  for (let i = tagged.indexOf(accepted) + 1; i < tagged.length; i++) {
-    const { parsed, message } = tagged[i];
+  const isPlayer = (kaid) =>
+    game && (kaid === game.white?.kaid || kaid === game.black?.kaid || kaid === game.inviter?.kaid);
+
+  for (const message of messages ?? []) {
+    const parsed = parseGameMessage(message.content);
+    if (!parsed) continue;
+
+    const author = message.author;
+
+    if (parsed.type === 'invite') {
+      // A new game may only start when none is running, or when one of the two
+      // people already playing is the one proposing it.
+      if (game && !game.finished && !isPlayer(author.kaid)) {
+        ignored++;
+        continue;
+      }
+      game = {
+        phase: 'invited',
+        inviter: author,
+        side: parsed.side,
+        finished: false,
+        white: null,
+        black: null,
+        state: null,
+        moveCount: 0,
+        lastMove: null,
+        result: null,
+        reason: '',
+      };
+      continue;
+    }
+
+    if (!game) {
+      ignored++;
+      continue;
+    }
+
+    if (parsed.type === 'accept') {
+      // You cannot accept your own invitation, and only the first taker plays.
+      if (game.phase !== 'invited' || author.kaid === game.inviter.kaid) {
+        ignored++;
+        continue;
+      }
+      game.white = game.side === 'w' ? game.inviter : author;
+      game.black = game.side === 'w' ? author : game.inviter;
+      game.state = newGame();
+      game.phase = 'playing';
+      continue;
+    }
+
+    if (parsed.type === 'decline') {
+      if (game.phase !== 'invited') {
+        ignored++;
+        continue;
+      }
+      game.phase = 'declined';
+      game.finished = true;
+      continue;
+    }
 
     if (parsed.type === 'resign') {
-      if (message.author.kaid === white.kaid || message.author.kaid === black.kaid) {
-        resignedBy = message.author;
-        break;
+      if (game.phase !== 'playing' || !isPlayer(author.kaid)) {
+        ignored++;
+        continue;
+      }
+      game.phase = 'over';
+      game.finished = true;
+      game.result = author.kaid === game.white.kaid ? 'black' : 'white';
+      game.reason = 'resignation';
+      continue;
+    }
+
+    if (parsed.type === 'move') {
+      if (game.phase !== 'playing') {
+        ignored++;
+        continue;
+      }
+      // Anyone can reply in a public thread, so a move only counts when it
+      // comes from the player who is actually to move.
+      const expected = game.state.turn === 'w' ? game.white : game.black;
+      if (author.kaid !== expected.kaid) {
+        ignored++;
+        continue;
+      }
+
+      const next = playMove(game.state, parsed.uci);
+      if (!next) {
+        ignored++;
+        continue;
+      }
+
+      game.state = next;
+      game.moveCount++;
+      game.lastMove = parsed.uci;
+
+      const outcome = status(next);
+      if (outcome.over) {
+        game.phase = 'over';
+        game.finished = true;
+        game.result = outcome.result;
+        game.reason = outcome.reason;
       }
       continue;
     }
 
-    if (parsed.type !== 'move') continue;
-
-    // Anyone can reply in a public thread, so a move only counts when it comes
-    // from the player who is actually to move.
-    const expected = state.turn === 'w' ? white : black;
-    if (message.author.kaid !== expected.kaid) {
-      ignored++;
-      continue;
-    }
-
-    const next = playMove(state, parsed.uci);
-    if (!next) {
-      ignored++;
-      continue;
-    }
-
-    state = next;
-    moveCount++;
-    lastMove = parsed.uci;
-    if (status(state).over) break;
+    ignored++; // an unknown [chess] message
   }
 
-  if (resignedBy) {
+  if (!game) return { phase: 'none', ignored };
+
+  if (game.phase === 'invited') {
     return {
-      phase: 'over',
-      white,
-      black,
-      state,
-      moveCount,
-      lastMove,
+      phase: 'invited',
+      inviter: game.inviter,
+      side: game.side,
+      isMine: selfKaid !== null && game.inviter.kaid === selfKaid,
       ignored,
-      result: resignedBy.kaid === white.kaid ? 'black' : 'white',
-      reason: 'resignation',
     };
   }
 
-  const outcome = status(state);
+  if (game.phase === 'declined') {
+    return { phase: 'declined', inviter: game.inviter, side: game.side, ignored };
+  }
+
+  // A live game still needs its running status, for "check" and for draws that
+  // are not reached by a move (fifty-move, insufficient material).
+  const live = game.phase === 'playing' ? status(game.state) : null;
+
   return {
-    phase: outcome.over ? 'over' : 'playing',
-    white,
-    black,
-    state,
-    moveCount,
-    lastMove,
+    phase: live?.over ? 'over' : game.phase,
+    white: game.white,
+    black: game.black,
+    state: game.state,
+    moveCount: game.moveCount,
+    lastMove: game.lastMove,
+    result: live?.over ? live.result : game.result,
+    reason: live?.over ? live.reason : live ? live.reason : game.reason,
     ignored,
-    result: outcome.result,
-    reason: outcome.reason,
   };
 }
 

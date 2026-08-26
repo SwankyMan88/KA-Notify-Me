@@ -595,6 +595,39 @@ async function diagnose(programInput) {
 /* --------------------------------- sync -------------------------------- */
 
 let syncInFlight = null;
+let chatInFlight = null;
+
+/**
+ * Chats poll on their own clock.
+ *
+ * They used to ride along inside the notification sync, and `sync()` collapses
+ * overlapping calls into one in-flight promise -- so however long a full
+ * notification pass took became the real chat interval, not the one in
+ * Settings. Kept separate, a room updates every poll regardless of how slow
+ * the notification side is being.
+ */
+async function runChatSync() {
+  const token = await getSessionToken();
+  if (!token) return;
+
+  const profile = await store.readOne('profile');
+  const somethingNew = await syncChats(profile?.kaid ?? null).catch((error) => {
+    console.error('[KA Notify Me] chat sync failed', error);
+    return false;
+  });
+
+  await paintBadge();
+  if (somethingNew) await playChime('chat');
+}
+
+function syncChatsNow() {
+  if (!chatInFlight) {
+    chatInFlight = runChatSync().finally(() => {
+      chatInFlight = null;
+    });
+  }
+  return chatInFlight;
+}
 
 async function signedOut() {
   await store.write({
@@ -630,9 +663,6 @@ async function runSync() {
   const cached = await store.read('profile', 'profileFetchedAt');
   const profileIsStale = Date.now() - (cached.profileFetchedAt ?? 0) > PROFILE_REFRESH_MS;
 
-  // Kicked off now rather than after the notification pages, which could take
-  // several requests -- chat latency was the sum of both.
-  const chatSync = syncChats(cached.profile?.kaid ?? null).catch(() => false);
 
   try {
     [{ notifications, cursor, hasMore }, profile] = await Promise.all([
@@ -670,14 +700,9 @@ async function runSync() {
     lastError: null,
   });
 
-  const newChatMessages = await chatSync;
-
   await paintBadge();
 
-  if (!firstSync) {
-    if (freshCount > 0) await playChime('notifications');
-    else if (newChatMessages) await playChime('chat');
-  }
+  if (!firstSync && freshCount > 0) await playChime('notifications');
 }
 
 /** Collapses overlapping triggers (alarm + heartbeat + popup) into one run. */
@@ -699,6 +724,7 @@ async function start() {
   await chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 1 });
   await chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_CHECK_MINUTES });
   await ensureOffscreen();
+  syncChatsNow();
   await sync();
   runUpdateCheck();
 }
@@ -713,7 +739,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
   if (alarm.name !== KEEPALIVE_ALARM) return;
   // Revive the heartbeat first -- the worker may have been asleep for a while.
-  ensureOffscreen().then(sync);
+  ensureOffscreen().then(() => {
+    syncChatsNow();
+    sync();
+  });
 });
 
 // Signing in or out of Khan Academy in any tab takes effect immediately.
@@ -738,7 +767,12 @@ function respond(sendResponse, work) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message?.type) {
     case 'kanm:heartbeat':
+      // Both, separately guarded: a slow notification pass must not delay chat.
+      syncChatsNow();
+      return respond(sendResponse, () => sync());
+
     case 'kanm:sync':
+      syncChatsNow();
       return respond(sendResponse, () => sync());
 
     case 'kanm:load-more':
@@ -786,11 +820,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return respond(sendResponse, () => diagnose(message.program));
 
     case 'kanm:chat-refresh':
-      return respond(sendResponse, async () => {
-        const profile = await store.readOne('profile');
-        await syncChats(profile?.kaid ?? null);
-        await paintBadge();
-      });
+      return respond(sendResponse, () => syncChatsNow());
 
     default:
       return false;
