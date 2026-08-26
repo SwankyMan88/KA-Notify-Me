@@ -5,7 +5,7 @@
  *
  * `roomId` is ours: a short id we stamp into the text of the Tips & Thanks
  * comment that anchors the room. That stamp is what lets a program hold several
- * rooms at once and lets a joining buddy find the right comment to reply to.
+ * rooms at once and lets someone joining find the right comment to reply to.
  * `roomKey` is Khan Academy's key for that comment -- it is long, so it is
  * resolved by looking the stamp up rather than carried around in the code.
  */
@@ -105,7 +105,7 @@ function checksum(payload) {
 }
 
 /**
- * The string you send your buddy, e.g. `KA-3PJ7BQ9F2-7HQ2MBX`.
+ * The string you share to invite someone, e.g. `KA-3PJ7BQ9F2-7HQ2MBX`.
  * Short enough to survive being pasted into a comment or a chat message.
  */
 export function encodeRoomCode({ programId, roomId }) {
@@ -143,7 +143,7 @@ export function decodeRoomCode(input) {
   try {
     programId = decodeProgramId(program);
   } catch {
-    throw new Error('That room code is damaged — ask your buddy to send it again.');
+    throw new Error('That room code is incomplete. Ask for it to be sent again.');
   }
 
   return { programId, roomId };
@@ -182,7 +182,7 @@ export function parseProgramId(input) {
   const match = text.match(/khanacademy\.org\/(?:computer-programming|cs)\/[^/]+\/(\d{6,})/);
   if (match) return match[1];
 
-  throw new Error('Paste the link to one of your Khan Academy programs.');
+  throw new Error('Enter a link to one of your Khan Academy programs.');
 }
 
 /* -------------------------- notification links ------------------------- */

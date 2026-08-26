@@ -17,7 +17,12 @@ createServer(async (req, res) => {
   const path = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^[/]+/, '');
   try {
     const body = await readFile(join(ROOT, path));
-    res.writeHead(200, { 'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream' });
+    // No caching: ES modules are cached by URL, and a stale one served during
+    // testing looks exactly like a change that did not work.
+    res.writeHead(200, {
+      'Content-Type': TYPES[extname(path)] ?? 'application/octet-stream',
+      'Cache-Control': 'no-store, must-revalidate',
+    });
     res.end(body);
   } catch {
     res.writeHead(404).end('not found');

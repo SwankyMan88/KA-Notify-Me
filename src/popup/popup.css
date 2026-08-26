@@ -1205,18 +1205,22 @@ body {
   border: 1px solid transparent;
   border-radius: 7px;
   background: none;
-  color: var(--muted);
+  /* Deliberately not hidden with opacity. It was, and an armed button ended up
+     invisible: the hover rule repainted its label the same colour as the
+     background, and the transparency fought every attempt to override it. A
+     control that asks "are you sure?" has to be legible in every state, so it
+     is simply always drawn, quietly. */
+  color: var(--line);
   font: inherit;
   font-size: 13px;
   line-height: 1.2;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s;
+  transition: color 0.12s, background 0.12s;
 }
 
 .msg:hover .msg-delete,
 .msg-delete:focus-visible {
-  opacity: 1;
+  color: var(--muted);
 }
 
 .msg-delete:hover {
@@ -1224,9 +1228,10 @@ body {
   border-color: var(--danger);
 }
 
-/* Armed: one more click commits, so it stops being a quiet little x. */
-.msg-delete--armed {
-  opacity: 1;
+/* Armed: one more click commits. Listed with :hover too, so the pointer being
+   on the button cannot repaint the label into the background. */
+.msg-delete--armed,
+.msg-delete--armed:hover {
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 700;

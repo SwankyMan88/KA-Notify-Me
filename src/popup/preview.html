@@ -58,15 +58,15 @@
             id="program-input"
             class="field"
             type="text"
-            placeholder="Link to one of your programs"
+            placeholder="Link to a program you own"
           />
           <input id="room-name-input" class="field" type="text" maxlength="40"
             placeholder="Room name (optional)" />
-          <p class="hint">Posts a comment on the program and gives you a code to share.</p>
+          <p class="hint">Creates a comment on that program and gives you a code others can join with.</p>
 
           <label class="check">
             <input id="share-code" type="checkbox" />
-            <span>Put the join code in the comment, so anyone reading it can join</span>
+            <span>Include the join code in the comment, so anyone reading it can join</span>
           </label>
 
           <button id="create-chat" class="primary" type="submit">Create room</button>
@@ -74,7 +74,7 @@
 
         <form id="join-form" class="drawer" hidden>
           <input id="code-input" class="field field--mono" type="text" placeholder="KA-XXXXXXXX-XXXXXXX" />
-          <p class="hint">Paste the code your buddy sent you.</p>
+          <p class="hint">Enter a room code to join an existing conversation.</p>
           <button id="join-chat" class="primary" type="submit">Join</button>
         </form>
 

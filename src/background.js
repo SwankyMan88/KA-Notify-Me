@@ -457,7 +457,7 @@ async function createChat(programInput, { shareCode = false, name = '' } = {}) {
     url: comment.permalink ?? comment.focusUrl ?? null,
   });
 
-  // Read the comment back the same way a joining buddy would. If we cannot see
+  // Read the comment back the same way someone joining would. If we cannot see
   // it, the room is unusable to them, and saying so now beats them finding out.
   const visible = await findRoomComment(programId, roomId).catch(() => null);
   if (!visible) {
@@ -469,7 +469,7 @@ async function createChat(programInput, { shareCode = false, name = '' } = {}) {
               error:
                 'The room comment was created but is not showing on the program yet. ' +
                 'Check the program on khanacademy.org — if the comment is not there, ' +
-                'your buddy will not be able to join.',
+                'nobody else will be able to join it.',
             }
           : c,
       ),
@@ -487,7 +487,7 @@ async function joinChat(code) {
   const found = await findRoomComment(programId, roomId);
   if (!found) {
     throw new Error(
-      `No room ${roomId} on that program. It may have been deleted, or the code is for a different program.`,
+      `No room ${roomId} on that program. It may have been deleted, or the code may belong to a different program.`,
     );
   }
 
@@ -715,7 +715,7 @@ async function syncGlobalRoom() {
           lastSeenKey: null,
           unread: 0,
           url: programUrl(GLOBAL_ROOM.programId),
-          error: 'Waiting for the global room comment to appear on the program.',
+          error: 'Cannot find chat',
         },
       ]);
     }

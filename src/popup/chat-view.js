@@ -115,7 +115,7 @@ function buildRoomRow(chat) {
     ? `${newest.author.nickname}: ${newest.content}`
     : chat.members.length
       ? chat.members.map((m) => m.nickname).join(', ')
-      : 'Share the code to get started';
+      : 'Share the room code to invite someone';
 
   info.append(title, last);
   row.append(avatars, info);
@@ -200,10 +200,28 @@ function buildDelete(message) {
   button.textContent = '×';
 
   let armed = false;
+
+  /**
+   * The armed look is applied inline rather than by class.
+   *
+   * A confirmation you cannot read is worse than none, and the stylesheet
+   * version kept losing: the hover rule is more specific than a single class,
+   * so it repainted the label in the same colour as the background this sets.
+   * Inline styling cannot be outranked, and this control is worth that.
+   */
+  const ARMED = {
+    padding: '2px 8px',
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#fff',
+    background: 'var(--danger)',
+    borderColor: 'var(--danger)',
+  };
+
   const disarm = () => {
     armed = false;
-    button.classList.remove('msg-delete--armed');
     button.textContent = '×';
+    for (const property of Object.keys(ARMED)) button.style[property] = '';
   };
 
   button.addEventListener('mouseleave', disarm);
@@ -212,8 +230,8 @@ function buildDelete(message) {
   button.addEventListener('click', async () => {
     if (!armed) {
       armed = true;
-      button.classList.add('msg-delete--armed');
       button.textContent = 'Delete?';
+      Object.assign(button.style, ARMED);
       return;
     }
 
@@ -253,8 +271,13 @@ function renderRoom(chat, selfKaid) {
   ui.openLink.href = chat.url ?? roomUrl(chat);
   showError(ui.roomError, chat.error);
 
+  // Chess is for a room with two people in it, not one shared with everyone.
+  ui.chessBtn.hidden = Boolean(chat.global);
+  if (chat.global) chessView.close();
+
   chessView.render(chat, selfKaid);
-  ui.chessDot.hidden = !chessView.hasGame(chat.messages, selfKaid) || chessView.isOpen();
+  ui.chessDot.hidden =
+    chat.global || !chessView.hasGame(chat.messages, selfKaid) || chessView.isOpen();
 
   // The board takes over the room rather than sitting on top of the chat.
   applyChessLayout();
@@ -375,7 +398,7 @@ export function setup() {
     event.preventDefault();
 
     const program = ui.programInput.value.trim();
-    if (!program) return showChatError('Paste a link to one of your programs first.');
+    if (!program) return showChatError('Enter a link to a program you own.');
 
     const shareCode = ui.shareCode.checked;
     await store.write({ shareCodeInComment: shareCode });
@@ -398,7 +421,7 @@ export function setup() {
     event.preventDefault();
 
     const code = ui.codeInput.value.trim();
-    if (!code) return showChatError('Paste the code your buddy sent you.');
+    if (!code) return showChatError('Enter a room code.');
 
     const result = await runAction(ui.joinBtn, 'Joining…', { type: 'kanm:chat-join', code });
     if (result) {
