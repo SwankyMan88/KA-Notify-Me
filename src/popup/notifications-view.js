@@ -136,9 +136,8 @@ function renderList(notifications, chats) {
 }
 
 /**
- * Chat and game traffic is already excluded by the background, which decides
- * what to store. Filtering here as well is what made the list look empty while
- * paging believed it was full.
+ * The background decides what to store, and room and game traffic never gets
+ * there. Nothing further to filter here.
  */
 function visible(state) {
   return state.notifications;

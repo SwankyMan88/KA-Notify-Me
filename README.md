@@ -208,10 +208,10 @@ A chat message is a real comment reply, so Khan Academy generates its own
 notification for it. Nothing in its API lets an extension unsubscribe from a
 thread, so those notifications cannot be stopped at the source.
 
-What the extension does instead, both on by default in Settings:
+What the extension does instead:
 
-- **Hide chat from notifications** keeps them out of the Notifications list,
-  since the messages are already in Chat
+- Room replies are never listed in the Notifications menu and never ring there.
+  They are already in Chat, where a new message rings once
 - **Mark read when opened** clears their "new" flag whenever you open the popup,
   so the count stops building up
 

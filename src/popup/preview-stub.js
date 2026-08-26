@@ -77,7 +77,6 @@ const state = {
   pollSeconds: 5,
   autoMessages: true,
   autoMarkRead: true,
-  hideChatNotifications: true,
   hideChatOnSite: true,
   clearChessOnEnd: true,
   tidyOwnMessages: true,

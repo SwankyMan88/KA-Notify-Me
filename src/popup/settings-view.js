@@ -21,7 +21,6 @@ const ui = {
   poll: el('set-poll'),
   autoMessages: el('set-auto-messages'),
   autoMarkRead: el('set-auto-mark-read'),
-  hideChatNotifications: el('set-hide-chat-notifications'),
   hideChatOnSite: el('set-hide-chat-site'),
   clearChess: el('set-clear-chess'),
   tidyOwn: el('set-tidy-own'),
@@ -47,7 +46,6 @@ const OWNED = [
   'pollSeconds',
   'autoMessages',
   'autoMarkRead',
-  'hideChatNotifications',
   'hideChatOnSite',
   'clearChessOnEnd',
   'tidyOwnMessages',
@@ -137,7 +135,6 @@ export function render(state) {
   ui.poll.value = String(state.pollSeconds);
   ui.autoMessages.checked = state.autoMessages;
   ui.autoMarkRead.checked = state.autoMarkRead;
-  ui.hideChatNotifications.checked = state.hideChatNotifications;
   ui.hideChatOnSite.checked = state.hideChatOnSite;
   ui.clearChess.checked = state.clearChessOnEnd;
   ui.tidyOwn.checked = state.tidyOwnMessages;
@@ -224,9 +221,6 @@ export function setup(options = {}) {
   );
   ui.poll.addEventListener('change', () => write({ pollSeconds: Number(ui.poll.value) }));
   ui.autoMarkRead.addEventListener('change', () => write({ autoMarkRead: ui.autoMarkRead.checked }));
-  ui.hideChatNotifications.addEventListener('change', () =>
-    write({ hideChatNotifications: ui.hideChatNotifications.checked }),
-  );
   ui.hideChatOnSite.addEventListener('change', () =>
     write({ hideChatOnSite: ui.hideChatOnSite.checked }),
   );

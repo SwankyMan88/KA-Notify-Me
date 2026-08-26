@@ -38,8 +38,6 @@ export const DEFAULTS = {
   soundOnChat: true,
   pollSeconds: 5,
   autoMessages: true,
-  /** Keep chat replies out of the Notifications list; they belong in Chat. */
-  hideChatNotifications: true,
   /** Also filter room replies out of khanacademy.org's own notification menu. */
   hideChatOnSite: true,
   /** Delete your own chess messages once a game finishes. */

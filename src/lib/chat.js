@@ -194,21 +194,68 @@ export function expandKeyFromUrl(url) {
   return new URLSearchParams(query).get('qa_expand_key');
 }
 
+/** The program a notification points at, when it points at one. */
+export function programIdFromUrl(url) {
+  const match = String(url ?? '').match(/\/(?:computer-programming|cs)\/[^/]+\/(\d{6,})/);
+  return match ? match[1] : null;
+}
+
+/** Comparable form for message text, which markdown may have altered in transit. */
+function comparable(text) {
+  return String(text ?? '')
+    .split('\\')
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 /**
- * Works out whether a notification is about one of your rooms, by matching the
- * post it points at against the room's anchor comment or any of its messages.
- * Returns the chat, so the popup can open it instead of sending you to the site.
+ * Works out whether a notification is about one of your rooms.
+ *
+ * Two ways, because one is not enough. The post's `qa_expand_key` identifies it
+ * exactly, but only once we have seen the message it refers to -- and a reply
+ * notification usually arrives before the poll that fetches it. So a room's own
+ * program plus matching text stands in until then, which is what stops a room
+ * reply appearing as an ordinary notification and ringing a second time.
  */
 export function findChatForNotification(notification, chats) {
-  const key = expandKeyFromUrl(notification?.url);
-  if (!key) return null;
+  const rooms = chats ?? [];
 
-  return (
-    chats.find(
+  const key = expandKeyFromUrl(notification?.url);
+  if (key) {
+    const byKey = rooms.find(
       (chat) =>
         chat.expandKey === key || (chat.messages ?? []).some((m) => m.expandKey === key),
-    ) ?? null
-  );
+    );
+    if (byKey) return byKey;
+  }
+
+  const programId = programIdFromUrl(notification?.url);
+  if (!programId) return null;
+
+  const onProgram = rooms.filter((chat) => chat.programId === programId);
+  if (!onProgram.length) return null;
+
+  // Same program and the same words: a reply in that room, not a coincidence.
+  const text = comparable(notification?.content);
+  if (text) {
+    const byText = onProgram.find((chat) =>
+      (chat.messages ?? []).some((m) => comparable(m.content) === text),
+    );
+    if (byText) return byText;
+  }
+
+  // A reply on a program we hold a room for, from someone in that room.
+  const author = notification?.authorNickname ?? notification?.authorKaid ?? null;
+  if (author) {
+    const byMember = onProgram.find((chat) =>
+      (chat.members ?? []).some((m) => m.nickname === author || m.kaid === author),
+    );
+    if (byMember) return byMember;
+  }
+
+  return null;
 }
 
 /* ------------------------------- messages ------------------------------ */

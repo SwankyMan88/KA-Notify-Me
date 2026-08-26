@@ -243,10 +243,14 @@ async function paintBadge() {
  * looked empty while paging thought it had plenty. Deciding here means what is
  * stored is exactly what is shown, so paging and the unread count agree with it.
  */
-function keepNotification(notification, chats, hideChat) {
+function keepNotification(notification, chats) {
   // Game traffic is never a notification worth reading.
   if (isGameMessage(notification.content)) return false;
-  if (hideChat && findChatForNotification(notification, chats)) return false;
+
+  // Nor is a room reply. It is already in Chat, where it rings once as a
+  // message -- letting it through here showed it twice and rang twice.
+  if (findChatForNotification(notification, chats)) return false;
+
   return true;
 }
 
@@ -256,7 +260,7 @@ const MAX_PAGES = 12;
 
 /** Walks back from the top until we have seen every brand-new notification. */
 async function collectNotifications() {
-  const { chats, hideChatNotifications } = await store.read('chats', 'hideChatNotifications');
+  const chats = await store.readOne('chats');
 
   const collected = [];
   let cursor = '';
@@ -268,7 +272,7 @@ async function collectNotifications() {
     if (!batch) break;
 
     collected.push(
-      ...batch.notifications.filter((n) => keepNotification(n, chats, hideChatNotifications)),
+      ...batch.notifications.filter((n) => keepNotification(n, chats)),
     );
 
     cursor = batch.cursor;
@@ -301,12 +305,12 @@ async function loadMoreNotifications() {
     return { added: 0 };
   }
 
-  const { chats, hideChatNotifications } = await store.read('chats', 'hideChatNotifications');
+  const chats = await store.readOne('chats');
 
   // Cursors can overlap across pages, so drop anything we already hold.
   const known = new Set(notifications.map((n) => n.urlsafeKey));
   const fresh = page.notifications.filter(
-    (n) => !known.has(n.urlsafeKey) && keepNotification(n, chats, hideChatNotifications),
+    (n) => !known.has(n.urlsafeKey) && keepNotification(n, chats),
   );
   const merged = [...notifications, ...fresh];
 
@@ -932,15 +936,11 @@ async function diagnose(programInput) {
   });
 
   await step('Notification filtering', async () => {
-    const { notifications, chats, hideChatNotifications } = await store.read(
-      'notifications',
-      'chats',
-      'hideChatNotifications',
-    );
+    const { notifications, chats } = await store.read('notifications', 'chats');
 
     const page = await fetchNotificationPage('');
     const raw = page?.notifications ?? [];
-    const kept = raw.filter((n) => keepNotification(n, chats, hideChatNotifications));
+    const kept = raw.filter((n) => keepNotification(n, chats));
     const dropped = raw.filter((n) => !kept.includes(n));
 
     for (const n of dropped.slice(0, 3)) {
