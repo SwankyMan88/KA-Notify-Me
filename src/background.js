@@ -670,6 +670,25 @@ async function diagnose(programInput) {
     return profile.nickname;
   });
 
+  await step('Notification filtering', async () => {
+    const { notifications, chats, hideChatNotifications } = await store.read(
+      'notifications',
+      'chats',
+      'hideChatNotifications',
+    );
+
+    const page = await fetchNotificationPage('');
+    const raw = page?.notifications ?? [];
+    const kept = raw.filter((n) => keepNotification(n, chats, hideChatNotifications));
+    const dropped = raw.filter((n) => !kept.includes(n));
+
+    for (const n of dropped.slice(0, 3)) {
+      lines.push(`     dropped: ${JSON.stringify(String(n.content ?? '').slice(0, 60))}`);
+    }
+
+    return `newest page has ${raw.length}, kept ${kept.length}, showing ${notifications.length}`;
+  });
+
   await step('Reach an update source', async () => {
     const { source, attempts } = await fetchLatestVersion();
     const failed = attempts.filter((a) => !a.ok);
@@ -702,6 +721,12 @@ async function diagnose(programInput) {
           attempts.push(`${name}->error`);
         }
       }
+
+      const recent = (chat.messages ?? []).slice(-4).map((m) => {
+        const kind = isGameMessage(m.content) ? 'game' : 'chat';
+        return `      [${kind}] ${JSON.stringify(String(m.content ?? '').slice(0, 60))}`;
+      });
+      if (recent.length) lines.push('     last messages, exactly as returned:', ...recent);
 
       const summary = `KA reports ${anchor.replyCount} replies; read ${attempts.join(', ')}`;
       if (anchor.replyCount > 0 && attempts.every((a) => a.endsWith('->0'))) {

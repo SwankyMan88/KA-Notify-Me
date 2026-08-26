@@ -146,7 +146,7 @@ Open a room and press **♟**. One of you invites, the other accepts, and you pl
 in the popup.
 
 There is no server behind it. Every move travels as an ordinary chat message
-like `[chess] e2e4`, and both sides rebuild the board by replaying the thread —
+like `KANMCHESS e2e4`, and both sides rebuild the board by replaying the thread —
 so you always see the same position, and the game survives closing the popup.
 Those messages are hidden from the conversation and drawn as a board instead.
 

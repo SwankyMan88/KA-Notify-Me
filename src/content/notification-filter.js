@@ -54,12 +54,15 @@
   function looksLikeGameMessage(content) {
     const text = String(content || "")
       .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, " ")
-      .replace(/\\([[\]\\*_`~])/g, "$1")
-      .trim()
-      .toLowerCase();
-    return text.startsWith("[chess]");
-  }
+      .replace(/&#(\d+);/g, function (_, c) { return String.fromCharCode(Number(c)); })
+      .replace(/&#x([0-9a-f]+);/gi, function (_, c) { return String.fromCharCode(parseInt(c, 16)); })
+      .replace(/&lbrack;/gi, "[")
+      .replace(/&rbrack;/gi, "]")
+      .split("\\").join("")
+      .trim();
 
+    return /^(?:KANMCHESS|\[chess\]|chess:{1,2})/i.test(text);
+  }
   function shouldHide(notification) {
     return looksLikeGameMessage(notification && notification.content) || belongsToRoom(notification);
   }

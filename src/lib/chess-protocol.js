@@ -11,42 +11,61 @@ import { newGame, playMove, status } from './chess.js';
  * for having come from the player whose turn it actually is.
  */
 
-export const PREFIX = '[chess]';
+/**
+ * The marker is deliberately plain letters.
+ *
+ * It used to be "[chess]", and brackets are markdown syntax: Khan Academy
+ * stores comments as markdown and can hand them back transformed -- escaped,
+ * entity-encoded, or turned into something else entirely -- so the prefix could
+ * not be relied on to survive the round trip. "KANMCHESS" contains nothing
+ * markdown cares about, so it comes back as it went out.
+ */
+export const PREFIX = 'KANMCHESS';
 
-const INVITE = /^\[chess\]\s+invite\s+([wb])$/i;
-const ACCEPT = /^\[chess\]\s+accept$/i;
-const DECLINE = /^\[chess\]\s+decline$/i;
-const RESIGN = /^\[chess\]\s+resign$/i;
-const MOVE = /^\[chess\]\s+([a-h][1-8][a-h][1-8][qrbn]?)$/i;
+/** Accepts the current marker and every earlier form, so games in progress keep working. */
+const MARKER = /^(?:KANMCHESS|\[chess\]|chess:{1,2})\s*/i;
+
+const INVITE = /^invite\s+([wb])$/i;
+const ACCEPT = /^accept$/i;
+const DECLINE = /^decline$/i;
+const RESIGN = /^resign$/i;
+const MOVE = /^([a-h][1-8][a-h][1-8][qrbn]?)$/i;
 
 /**
- * Khan Academy stores comments as markdown, so a posted "[chess] e2e4" can come
- * back as "\[chess\] e2e4" -- the brackets escaped. Your own optimistic copy
- * is the raw text and matched fine, while the server's echo did not, which is
- * why a game message could hide for you and show for everyone else. Strip the
- * escapes and any invisible characters before matching.
+ * Normalises before matching. Backslashes are dropped wholesale rather than
+ * only before brackets: markdown escaping is the one thing that reliably
+ * appears here, and no legitimate game message contains a backslash.
  */
 export function normaliseGameText(content) {
   return String(content ?? '')
-    .replace(/[\u200B\u200C\u200D\uFEFF\u00A0]/g, ' ')
-    .replace(/\\([[\]\\*_`~])/g, '$1')
+    .replace(/[​‌‍﻿ ]/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&lbrack;/gi, '[')
+    .replace(/&rbrack;/gi, ']')
+    .replace(/&amp;/gi, '&')
+    .split('\\')
+    .join('')
     .trim();
 }
 
 /** Recognises a game message so the chat view can keep it out of the bubbles. */
 export function parseGameMessage(content) {
   const text = normaliseGameText(content);
-  if (!text.toLowerCase().startsWith(PREFIX)) return null;
+  const marker = text.match(MARKER);
+  if (!marker) return null;
+
+  const rest = text.slice(marker[0].length).trim();
 
   let match;
-  if ((match = text.match(INVITE))) return { type: 'invite', side: match[1].toLowerCase() };
-  if (ACCEPT.test(text)) return { type: 'accept' };
-  if (DECLINE.test(text)) return { type: 'decline' };
-  if (RESIGN.test(text)) return { type: 'resign' };
-  if ((match = text.match(MOVE))) return { type: 'move', uci: match[1].toLowerCase() };
+  if ((match = rest.match(INVITE))) return { type: 'invite', side: match[1].toLowerCase() };
+  if (ACCEPT.test(rest)) return { type: 'accept' };
+  if (DECLINE.test(rest)) return { type: 'decline' };
+  if (RESIGN.test(rest)) return { type: 'resign' };
+  if ((match = rest.match(MOVE))) return { type: 'move', uci: match[1].toLowerCase() };
 
-  // Starts with our prefix but is not something we understand. Still hidden
-  // from the chat, so a future version's messages do not litter old clients.
+  // Carries our marker but says something we do not understand. Still hidden,
+  // so a future version's messages do not litter an older client's chat.
   return { type: 'unknown' };
 }
 

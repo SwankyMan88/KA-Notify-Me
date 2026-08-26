@@ -7,11 +7,11 @@ const iso = (mins) => new Date(now - mins * 60000).toISOString();
 const me = 'kaid_self';
 
 const chessLog = [
-  ['kaid_buddy', 'Ada Lovelace', '[chess] invite w'],
-  ['kaid_self', 'Colin', '[chess] accept'],
+  ['kaid_buddy', 'Ada Lovelace', 'KANMCHESS invite w'],
+  ['kaid_self', 'Colin', 'KANMCHESS accept'],
   ['kaid_buddy', 'Ada Lovelace', String.raw`\[chess\] e2e4`],
   ['kaid_self', 'Colin', String.raw`\[chess\] e7e5`],
-  ['kaid_buddy', 'Ada Lovelace', '[chess] g1f3'],
+  ['kaid_buddy', 'Ada Lovelace', 'KANMCHESS g1f3'],
 ].map(([kaid, nickname, content], i) => ({
   key: `c${i}`,
   date: new Date(Date.now() - (10 - i) * 60000).toISOString(),
