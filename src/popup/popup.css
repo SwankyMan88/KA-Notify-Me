@@ -1245,3 +1245,170 @@ body {
   letter-spacing: normal;
   text-align: left;
 }
+
+/* --------------------------------- chess -------------------------------- */
+
+.chess {
+  flex-shrink: 0;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.chess-status {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: 296px;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sq {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Board colours are fixed rather than themed: a chessboard that changes with
+   the accent stops reading as a chessboard. */
+.sq--light {
+  background: #ecd9b9;
+}
+
+.sq--dark {
+  background: #b48b62;
+}
+
+.sq--last {
+  box-shadow: inset 0 0 0 3px rgba(255, 214, 0, 0.55);
+}
+
+.sq--selected {
+  box-shadow: inset 0 0 0 3px var(--violet);
+}
+
+.piece {
+  font-size: 27px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The glyphs are outlines, so each colour needs filling in explicitly. */
+.piece--white {
+  color: #fff;
+  text-shadow: 0 0 1px #000, 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.piece--black {
+  color: #1a1a1a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.target {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* A capture is drawn as a ring so the piece underneath stays visible. */
+.target--capture {
+  width: 84%;
+  height: 84%;
+  background: none;
+  border: 3px solid rgba(0, 0, 0, 0.35);
+}
+
+.chess-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.chess-btn {
+  flex: 1;
+  padding: 7px 6px;
+  border: 1px solid var(--violet);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--violet);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chess-btn:hover {
+  background: var(--violet);
+  color: #fff;
+}
+
+.chess-btn--quiet {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.chess-btn--quiet:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.promo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.promo-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.promo-pick {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.promo-pick:hover {
+  border-color: var(--violet);
+  background: var(--violet-soft);
+}
+
+#room-chess {
+  position: relative;
+}
+
+#room-chess .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  margin: 0;
+  background: var(--danger);
+}

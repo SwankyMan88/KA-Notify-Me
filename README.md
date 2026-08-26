@@ -140,6 +140,26 @@ you wouldn't post publicly.**
 
 <br>
 
+## Chess
+
+Open a room and press **♟**. One of you invites, the other accepts, and you play
+in the popup.
+
+There is no server behind it. Every move travels as an ordinary chat message
+like `[chess] e2e4`, and both sides rebuild the board by replaying the thread —
+so you always see the same position, and the game survives closing the popup.
+Those messages are hidden from the conversation and drawn as a board instead.
+
+Because the thread is public, nothing is taken on trust: a move only counts if
+it is legal *and* comes from the player whose turn it is. Anyone else replying
+in the thread is ignored, including someone trying to resign on your behalf.
+
+Full rules — castling, en passant, promotion, check, checkmate, stalemate, the
+fifty-move rule and insufficient material. The move generator is verified
+against standard perft counts rather than by eye.
+
+<br>
+
 ## Chat and the Khan Academy inbox
 
 A chat message is a real comment reply, so Khan Academy generates its own
@@ -153,8 +173,12 @@ What the extension does instead, both on by default in Settings:
 - **Mark read when opened** clears their "new" flag whenever you open the popup,
   so the count stops building up
 
-They will still be listed on khanacademy.org's own notifications page if you go
-looking for them.
+**Hide rooms on the KA site** goes further, and is off by default. It filters
+room replies out of khanacademy.org's own notification menu, by intercepting
+that one API response as the page loads. It changes nothing on Khan Academy's
+servers — the notifications still exist, and turning the setting off shows them
+again. If the filter ever fails it hands the page back exactly what Khan Academy
+sent, so the site cannot break because of it.
 
 <br>
 

@@ -22,6 +22,7 @@ const ui = {
   autoMessages: el('set-auto-messages'),
   autoMarkRead: el('set-auto-mark-read'),
   hideChatNotifications: el('set-hide-chat-notifications'),
+  hideChatOnSite: el('set-hide-chat-site'),
   updateState: el('set-update-state'),
   checkUpdate: el('set-check-update'),
   reset: el('set-reset'),
@@ -41,6 +42,7 @@ const OWNED = [
   'autoMessages',
   'autoMarkRead',
   'hideChatNotifications',
+  'hideChatOnSite',
 ];
 
 let onClose = () => {};
@@ -126,6 +128,7 @@ export function render(state) {
   ui.autoMessages.checked = state.autoMessages;
   ui.autoMarkRead.checked = state.autoMarkRead;
   ui.hideChatNotifications.checked = state.hideChatNotifications;
+  ui.hideChatOnSite.checked = state.hideChatOnSite;
 
   for (const swatch of ui.accent.children) {
     swatch.setAttribute('aria-pressed', String(swatch.dataset.accent === state.accent));
@@ -208,6 +211,9 @@ export function setup(options = {}) {
   ui.autoMarkRead.addEventListener('change', () => write({ autoMarkRead: ui.autoMarkRead.checked }));
   ui.hideChatNotifications.addEventListener('change', () =>
     write({ hideChatNotifications: ui.hideChatNotifications.checked }),
+  );
+  ui.hideChatOnSite.addEventListener('change', () =>
+    write({ hideChatOnSite: ui.hideChatOnSite.checked }),
   );
 
   // Picking a sound plays it immediately -- that is how you choose one.

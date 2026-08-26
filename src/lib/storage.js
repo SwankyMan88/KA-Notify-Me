@@ -40,6 +40,8 @@ export const DEFAULTS = {
   autoMessages: true,
   /** Keep chat replies out of the Notifications list; they belong in Chat. */
   hideChatNotifications: true,
+  /** Also filter room replies out of khanacademy.org's own notification menu. */
+  hideChatOnSite: false,
   /** Clear the "new" flag when you open the popup, so nothing piles up. */
   autoMarkRead: true,
   /** Version the user pressed "Not now" on; cleared when a newer one lands. */

@@ -6,6 +6,19 @@ const iso = (mins) => new Date(now - mins * 60000).toISOString();
 
 const me = 'kaid_self';
 
+const chessLog = [
+  ['kaid_buddy', 'Ada Lovelace', '[chess] invite w'],
+  ['kaid_self', 'Colin', '[chess] accept'],
+  ['kaid_buddy', 'Ada Lovelace', '[chess] e2e4'],
+  ['kaid_self', 'Colin', '[chess] e7e5'],
+  ['kaid_buddy', 'Ada Lovelace', '[chess] g1f3'],
+].map(([kaid, nickname, content], i) => ({
+  key: `c${i}`,
+  date: new Date(Date.now() - (10 - i) * 60000).toISOString(),
+  content,
+  author: { kaid, nickname, avatarSrc: null },
+}));
+
 const messages = [
   {
     key: 'm1',
@@ -65,6 +78,7 @@ const state = {
   autoMessages: true,
   autoMarkRead: true,
   hideChatNotifications: true,
+  hideChatOnSite: false,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
@@ -89,7 +103,7 @@ const state = {
       title: 'Particle Fountain',
       url: 'https://www.khanacademy.org/computer-programming/x/6586620957786112',
       code: 'KA-1SURFW8R30G-HTD3PND',
-      messages,
+      messages: [...messages, ...chessLog],
       members: [{ kaid: 'kaid_buddy', nickname: 'Ada Lovelace', avatarSrc: null }],
       lastSeenKey: 'm4',
       unread: 1,

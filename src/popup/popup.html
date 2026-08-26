@@ -97,6 +97,9 @@
             <p id="room-name" class="nickname"></p>
             <p id="room-members" class="subtitle subtitle--dark"></p>
           </div>
+          <button id="room-chess" class="ghost" type="button" title="Chess">
+            ♟<span id="chess-dot" class="dot" hidden></span>
+          </button>
           <button id="room-menu" class="ghost" type="button" title="Room code and options">⋯</button>
         </div>
 
@@ -114,6 +117,13 @@
             <a id="room-open" class="link" href="#" target="_blank" rel="noreferrer">Open on KA</a>
             <button id="leave-room" class="link link--danger" type="button">Leave room</button>
           </div>
+        </div>
+
+        <div id="chess-panel" class="chess" hidden>
+          <p id="chess-status" class="chess-status"></p>
+          <div id="chess-board" class="board"></div>
+          <div id="chess-promo" class="promo" hidden></div>
+          <div id="chess-actions" class="chess-actions"></div>
         </div>
 
         <ul id="messages" class="messages"></ul>
@@ -256,6 +266,15 @@
               data-tip="Chat replies also arrive as ordinary Khan Academy notifications. This keeps them out of the Notifications list, since they are already in Chat. It cannot stop Khan Academy creating them on its own site."></button>
           </span>
           <label class="switch"><input id="set-hide-chat-notifications" type="checkbox" /><span></span></label>
+        </div>
+
+        <div class="setting">
+          <span class="setting-label">
+            Hide rooms on the KA site
+            <button class="info" type="button" aria-label="What is this?"
+              data-tip="Also removes room replies from khanacademy.org's own notification menu, by filtering them out of the page as it loads. Off by default because it changes how another site behaves. It cannot remove them from Khan Academy's servers."></button>
+          </span>
+          <label class="switch"><input id="set-hide-chat-site" type="checkbox" /><span></span></label>
         </div>
 
         <div class="setting setting--stack">

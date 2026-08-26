@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "KA Notify Me",
   "short_name": "KA Notify Me",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Signs in with your Khan Academy session and rings you the moment a new notification lands.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -25,6 +25,35 @@
     "service_worker": "src/background.js",
     "type": "module"
   },
-  "permissions": ["cookies", "storage", "alarms", "offscreen"],
-  "host_permissions": ["https://www.khanacademy.org/"]
+  "permissions": [
+    "cookies",
+    "storage",
+    "alarms",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://www.khanacademy.org/"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.khanacademy.org/*"
+      ],
+      "js": [
+        "src/content/notification-filter.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.khanacademy.org/*"
+      ],
+      "js": [
+        "src/content/bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ]
 }

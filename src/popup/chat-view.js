@@ -1,6 +1,8 @@
 import { displayTitle, roomUrl } from '../lib/chat.js';
 import * as store from '../lib/storage.js';
 import { relativeTime } from './format.js';
+import { isGameMessage } from '../lib/chess-protocol.js';
+import * as chessView from './chess-view.js';
 import { send } from './messaging.js';
 
 const el = (id) => document.getElementById(id);
@@ -30,6 +32,8 @@ const ui = {
   name: el('room-name'),
   members: el('room-members'),
   menuBtn: el('room-menu'),
+  chessBtn: el('room-chess'),
+  chessDot: el('chess-dot'),
   options: el('room-options'),
   code: el('room-code'),
   copyBtn: el('copy-code'),
@@ -46,6 +50,8 @@ const ui = {
 };
 
 let openRoomId = null;
+let latestChat = null;
+let latestSelfKaid = null;
 /** Signature of the messages currently drawn, so we only redraw on change. */
 let drawn = '';
 
@@ -103,7 +109,7 @@ function buildRoomRow(chat) {
 
   const last = document.createElement('p');
   last.className = 'room-last';
-  const newest = chat.messages.at(-1);
+  const newest = (chat.messages ?? []).filter((m) => !isGameMessage(m.content)).at(-1);
   last.textContent = newest
     ? `${newest.author.nickname}: ${newest.content}`
     : chat.members.length
@@ -219,6 +225,11 @@ function buildDelete(message) {
   return button;
 }
 
+/** The visible conversation: game traffic is drawn on the board instead. */
+function chatMessages(chat) {
+  return (chat.messages ?? []).filter((m) => !isGameMessage(m.content));
+}
+
 function renderRoom(chat, selfKaid) {
   ui.name.textContent = displayTitle(chat);
   if (document.activeElement !== ui.renameInput) {
@@ -232,15 +243,20 @@ function renderRoom(chat, selfKaid) {
   ui.openLink.href = chat.url ?? roomUrl(chat);
   showError(ui.roomError, chat.error);
 
+  chessView.render(chat, selfKaid);
+  ui.chessDot.hidden = !chessView.hasGame(chat.messages, selfKaid) || chessView.isOpen();
+
+  const visible = chatMessages(chat);
+
   // Redrawing on every poll would fight the scroll position and text selection.
-  const signature = chat.messages.map((m) => m.key).join(',');
+  const signature = visible.map((m) => m.key).join(',');
   if (signature === drawn) return;
 
   const atBottom =
     ui.messages.scrollHeight - (ui.messages.scrollTop + ui.messages.clientHeight) < 60;
 
   ui.messages.replaceChildren(
-    ...chat.messages.map((message, i) => buildMessage(message, chat.messages[i - 1], selfKaid)),
+    ...visible.map((message, i) => buildMessage(message, visible[i - 1], selfKaid)),
   );
   drawn = signature;
 
@@ -267,6 +283,7 @@ async function openRoom(id) {
 }
 
 function closeRoom() {
+  chessView.close();
   openRoomId = null;
   store.write({ activeChatId: null });
 }
@@ -286,7 +303,9 @@ export function render(state) {
 
   ui.home.hidden = true;
   ui.room.hidden = false;
-  renderRoom(chat, state.profile?.kaid ?? null);
+  latestChat = chat;
+  latestSelfKaid = state.profile?.kaid ?? null;
+  renderRoom(chat, latestSelfKaid);
 }
 
 /* -------------------------------- setup -------------------------------- */
@@ -407,6 +426,22 @@ export function setup() {
       event.preventDefault();
       saveRename();
     }
+  });
+
+  ui.chessBtn.addEventListener('click', () => {
+    chessView.toggle();
+    ui.options.hidden = true;
+    if (latestChat) {
+      chessView.render(latestChat, latestSelfKaid);
+      ui.chessDot.hidden = !chessView.hasGame(latestChat.messages, latestSelfKaid) || chessView.isOpen();
+    }
+  });
+
+  chessView.setup({
+    onSend: async (text) => {
+      const result = await send({ type: 'kanm:chat-send', id: openRoomId, text });
+      if (!result?.ok) showError(ui.roomError, result?.error ?? 'Could not send that move.');
+    },
   });
 
   ui.back.addEventListener('click', closeRoom);
