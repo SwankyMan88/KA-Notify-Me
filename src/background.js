@@ -1,6 +1,8 @@
 import {
   BADGE_COLOR,
   KEEPALIVE_ALARM,
+  GLOBAL_ROOM,
+  GLOBAL_ROOM_LIMIT,
   KEEP_RECENT_MESSAGES,
   PROFILE_REFRESH_MS,
   MAX_NOTIFICATIONS,
@@ -31,6 +33,7 @@ import {
   makeRoomId,
   membersFrom,
   parseProgramId,
+  programUrl,
   roomMarker,
 } from './lib/chat.js';
 import { isGameMessage, isMoveMessage, readGame } from './lib/chess-protocol.js';
@@ -50,7 +53,7 @@ async function hasOffscreen() {
   return existing.length > 0;
 }
 
-/** Creates the document, tolerating the race where something else just did. */
+/** Creates the document. Returns null on success, or why it could not. */
 async function createOffscreen() {
   if (!creatingOffscreen) {
     creatingOffscreen = chrome.offscreen
@@ -59,27 +62,33 @@ async function createOffscreen() {
         reasons: ['AUDIO_PLAYBACK'],
         justification: 'Polls for new notifications every few seconds and plays the alert chime.',
       })
-      .catch((error) => {
-        // "Only a single offscreen document may be created" means someone beat
-        // us to it, which is exactly what we wanted anyway.
-        if (!String(error?.message ?? error).includes('single offscreen document')) throw error;
-      })
+      .then(() => null)
+      .catch((error) => String(error?.message ?? error))
       .finally(() => {
         creatingOffscreen = null;
       });
   }
-  await creatingOffscreen;
+  return creatingOffscreen;
+}
+
+/** Closes it and waits for it to actually be gone, not merely asked to go. */
+async function closeOffscreen() {
+  try {
+    await chrome.offscreen.closeDocument();
+  } catch (error) {
+    return String(error?.message ?? error);
+  }
+
+  for (let i = 0; i < 10; i++) {
+    if (!(await hasOffscreen())) return null;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return 'still listed after closing';
 }
 
 async function ensureOffscreen() {
-  if (await hasOffscreen()) return;
-  await createOffscreen();
-}
-
-/** Closes whatever is there, listed or not, and builds a fresh one. */
-async function rebuildOffscreen() {
-  await chrome.offscreen.closeDocument().catch(() => {});
-  await createOffscreen();
+  if (await hasOffscreen()) return null;
+  return createOffscreen();
 }
 
 /** Pings the offscreen document; false means it is there but not answering. */
@@ -120,15 +129,35 @@ async function pingFor(ms) {
  * back was a rebuild, and nothing ever asked for one.
  */
 async function offscreenReady() {
-  await ensureOffscreen();
-  if (await pingFor(1200)) return true;
+  const trace = [];
 
-  console.warn('[KA Notify Me] audio player not answering; rebuilding it');
-  await rebuildOffscreen();
-  if (await pingFor(3000)) return true;
+  const existed = await hasOffscreen();
+  trace.push(existed ? 'found one' : 'none there');
 
-  console.error('[KA Notify Me] audio player still not answering after a rebuild');
-  return false;
+  if (!existed) {
+    const failure = await createOffscreen();
+    trace.push(failure ? `create failed: ${failure}` : 'created');
+    if (failure) return { ok: false, trace };
+  }
+
+  if (await pingFor(1200)) return { ok: true, trace: [...trace, 'answered'] };
+  trace.push('no answer');
+
+  // Chrome can reclaim a document that is not currently playing anything, and
+  // a reclaimed one is still listed -- so being listed proves nothing and the
+  // only way back is to build a new one.
+  const closeFailure = await closeOffscreen();
+  trace.push(closeFailure ? `close failed: ${closeFailure}` : 'closed');
+
+  const createFailure = await createOffscreen();
+  trace.push(createFailure ? `rebuild failed: ${createFailure}` : 'rebuilt');
+  if (createFailure) return { ok: false, trace };
+
+  if (await pingFor(3000)) return { ok: true, trace: [...trace, 'answered'] };
+
+  trace.push('still no answer');
+  console.error('[KA Notify Me] audio player unreachable:', trace.join(' -> '));
+  return { ok: false, trace };
 }
 
 /** @param source 'notifications' | 'chat' */
@@ -151,11 +180,9 @@ async function playChime(source) {
     return { played: false, reason: 'chat sounds are switched off' };
   }
 
-  if (!(await offscreenReady())) {
-    return {
-      played: false,
-      reason: 'the audio player could not be started, even after rebuilding it',
-    };
+  const ready = await offscreenReady();
+  if (!ready.ok) {
+    return { played: false, reason: `audio player unreachable (${ready.trace.join(' → ')})` };
   }
 
   try {
@@ -284,12 +311,13 @@ async function loadMoreNotifications() {
 /** Refreshes every room's messages. Returns true if anything new arrived. */
 async function syncChats(selfKaid) {
   const snapshot = await store.readOne('chats');
-  if (!snapshot.length) return false;
+  if (!snapshot.length) return { other: false, global: false };
 
   // All the network work happens outside the lock, so a poll in progress never
   // blocks a message being sent.
   const results = await Promise.all(
     snapshot.map(async (chat) => {
+      if (!chat.roomKey) return { id: chat.id, skip: true };
       try {
         // A key that worked before is tried first; the others are the fallback.
         const { messages, keyUsed } = await fetchReplies([
@@ -306,13 +334,13 @@ async function syncChats(selfKaid) {
   );
 
   const byId = new Map(results.map((r) => [r.id, r]));
-  let anyNew = false;
+  const anyNew = { other: false, global: false };
 
   await withChats((current) =>
     current.map((chat) => {
       const result = byId.get(chat.id);
       // A room joined while we were fetching has no result yet; leave it alone.
-      if (!result) return chat;
+      if (!result || result.skip) return chat;
       if (result.error) return { ...chat, error: result.error };
 
       const messages = mergeMessages(result.messages, chat.messages);
@@ -328,7 +356,10 @@ async function syncChats(selfKaid) {
       }
 
       const unread = countUnread(messages, chat.lastSeenKey, selfKaid);
-      if (unread > (chat.unread ?? 0)) anyNew = true;
+      if (unread > (chat.unread ?? 0)) {
+        if (chat.global) anyNew.global = true;
+        else anyNew.other = true;
+      }
 
       return {
         ...chat,
@@ -589,6 +620,11 @@ async function markChatSeen(id) {
 }
 
 async function leaveChat(id) {
+  const chat = (await store.readOne('chats')).find((c) => c.id === id);
+  if (chat?.global) {
+    throw new Error('The global room cannot be left. Switch it off in Settings instead.');
+  }
+
   await withChats((chats) => chats.filter((chat) => chat.id !== id));
   if ((await store.readOne('activeChatId')) === id) {
     await store.write({ activeChatId: null });
@@ -624,6 +660,96 @@ async function runUpdateCheck() {
     });
     return { version: await store.readOne('updateAvailable') };
   }
+}
+
+/* ------------------------------ global room ----------------------------- */
+
+/**
+ * Keeps the shared room in the list, without it having been joined.
+ *
+ * It is resolved the same way any room is -- by finding its stamp on the
+ * program -- so it simply appears once the anchor comment is there, and quietly
+ * reports itself as waiting until then.
+ */
+async function syncGlobalRoom() {
+  const enabled = await store.readOne('globalRoomEnabled');
+  const id = chatId(GLOBAL_ROOM);
+  const existing = (await store.readOne('chats')).find((c) => c.id === id);
+
+  if (!enabled) {
+    if (existing) await withChats((chats) => chats.filter((c) => c.id !== id));
+    return;
+  }
+
+  if (existing?.roomKey) return; // already resolved; the normal sync handles it
+
+  const found = await findRoomComment(GLOBAL_ROOM.programId, GLOBAL_ROOM.roomId).catch(() => null);
+
+  if (!found) {
+    // Show it as present but not yet usable, rather than silently missing.
+    if (!existing) {
+      await withChats((chats) => [
+        ...chats,
+        {
+          ...GLOBAL_ROOM,
+          id,
+          global: true,
+          roomKey: null,
+          expandKey: '',
+          code: encodeRoomCode(GLOBAL_ROOM),
+          messages: [],
+          members: [],
+          lastSeenKey: null,
+          unread: 0,
+          url: programUrl(GLOBAL_ROOM.programId),
+          error: 'Waiting for the global room comment to appear on the program.',
+        },
+      ]);
+    }
+    return;
+  }
+
+  await withChats((chats) => {
+    const rest = chats.filter((c) => c.id !== id);
+    return [
+      ...rest,
+      {
+        ...(existing ?? {}),
+        ...GLOBAL_ROOM,
+        id,
+        global: true,
+        roomKey: found.key,
+        expandKey: found.expandKey,
+        url: found.url ?? programUrl(GLOBAL_ROOM.programId),
+        code: encodeRoomCode(GLOBAL_ROOM),
+        messages: existing?.messages ?? [],
+        members: existing?.members ?? [],
+        lastSeenKey: existing?.lastSeenKey ?? null,
+        unread: existing?.unread ?? 0,
+        error: null,
+      },
+    ];
+  });
+}
+
+/**
+ * Holds the global room to its message limit.
+ *
+ * Only your own posts can be deleted, so this can trim the room only when the
+ * oldest message is yours. Someone else's oldest message stays until their own
+ * copy trims it.
+ */
+async function trimGlobalRoom(selfKaid) {
+  if (!selfKaid) return;
+
+  const chat = (await store.readOne('chats')).find((c) => c.global);
+  if (!chat || (chat.messages ?? []).length <= GLOBAL_ROOM_LIMIT) return;
+
+  const excess = chat.messages.length - GLOBAL_ROOM_LIMIT;
+  const oldest = chat.messages.slice(0, excess).filter((m) => m.author?.kaid === selfKaid);
+  if (!oldest.length) return;
+
+  await deleteOwn(chat.id, oldest);
 }
 
 /* ---------------------------- message tidying --------------------------- */
@@ -898,14 +1024,19 @@ async function runChatSync() {
   const token = await getSessionToken();
   if (!token) return;
 
+  await syncGlobalRoom().catch((error) =>
+    console.error('[KA Notify Me] global room sync failed', error),
+  );
+
   const profile = await store.readOne('profile');
   const somethingNew = await syncChats(profile?.kaid ?? null).catch((error) => {
     console.error('[KA Notify Me] chat sync failed', error);
-    return false;
+    return { other: false, global: false };
   });
 
   await paintBadge();
-  if (somethingNew) await playChime('chat');
+  if (somethingNew.other) await playChime('chat');
+  if (somethingNew.global && (await store.readOne('globalRoomSound'))) await playChime('chat');
 
   // After the messages are up to date, not before, or the game looks unfinished.
   await tidyFinishedGames(profile?.kaid ?? null).catch((error) =>
@@ -913,6 +1044,9 @@ async function runChatSync() {
   );
   await tidyOwnMessages(profile?.kaid ?? null).catch((error) =>
     console.error('[KA Notify Me] tidying old messages failed', error),
+  );
+  await trimGlobalRoom(profile?.kaid ?? null).catch((error) =>
+    console.error('[KA Notify Me] trimming the global room failed', error),
   );
 }
 

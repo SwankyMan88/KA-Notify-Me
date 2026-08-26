@@ -81,6 +81,8 @@ const state = {
   hideChatOnSite: true,
   clearChessOnEnd: true,
   tidyOwnMessages: true,
+  globalRoomEnabled: true,
+  globalRoomSound: false,
   updateDismissedVersion: null,
   announcedKeys: [],
   activeChatId: null,
@@ -94,6 +96,26 @@ const state = {
   profile: { kaid: me, nickname: 'Colin', username: 'colinb', points: 184320, avatarSrc: null },
 
   chats: [
+    {
+      id: '5512217463472128:KANMGC',
+      programId: '5512217463472128',
+      roomId: 'KANMGC',
+      global: true,
+      name: 'Global Chat',
+      customTitle: '',
+      roomKey: 'globalkey',
+      expandKey: 'gx',
+      title: 'Global Chat',
+      url: null,
+      code: 'KA-1I9X1QSII2O-KANMGC4',
+      messages: [
+        { key: 'g1', date: new Date(Date.now() - 300000).toISOString(), content: 'hey everyone', author: { kaid: 'kaid_x', nickname: 'Sam', avatarSrc: null } },
+      ],
+      members: [{ kaid: 'kaid_x', nickname: 'Sam', avatarSrc: null }],
+      lastSeenKey: 'g1',
+      unread: 0,
+      error: null,
+    },
     {
       id: '6586620957786112:HTD3PN',
       programId: '6586620957786112',

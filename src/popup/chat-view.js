@@ -105,7 +105,7 @@ function buildRoomRow(chat) {
   // The room id is shown so two rooms on one program stay tellable apart.
   const tag = document.createElement('span');
   tag.className = 'room-tag';
-  tag.textContent = chat.roomId;
+  tag.textContent = chat.global ? 'everyone' : chat.roomId;
   title.append(tag);
 
   const last = document.createElement('p');
@@ -248,6 +248,7 @@ function renderRoom(chat, selfKaid) {
     ? chat.members.map((m) => m.nickname).join(', ')
     : `Room ${chat.roomId} · share the code to invite someone`;
 
+  ui.leaveBtn.hidden = Boolean(chat.global);
   ui.code.value = chat.code;
   ui.openLink.href = chat.url ?? roomUrl(chat);
   showError(ui.roomError, chat.error);

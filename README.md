@@ -126,6 +126,21 @@ doing anything.
 
 <br>
 
+## Global chat
+
+One room every copy of KA Notify Me shares, on a fixed program. It appears on
+its own — there is nothing to join — and it cannot be left, only switched off
+under **Settings → Show the global room**.
+
+It keeps its **30 most recent messages**. Past that, the oldest go. Khan Academy
+only lets you delete your own posts, so each copy removes its own owner's oldest
+messages; someone else's go when their copy next polls.
+
+It is **silent by default**, since it is shared with everyone and a chime per
+message would be constant. **Settings → Sound for global chat** turns it on.
+
+<br>
+
 ## Heads up: rooms are not private
 
 A room is a real comment thread on a real program. That means:

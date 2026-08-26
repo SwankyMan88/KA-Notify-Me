@@ -25,6 +25,8 @@ const ui = {
   hideChatOnSite: el('set-hide-chat-site'),
   clearChess: el('set-clear-chess'),
   tidyOwn: el('set-tidy-own'),
+  globalRoom: el('set-global-room'),
+  globalSound: el('set-global-sound'),
   testAlert: el('set-test-alert'),
   alertResult: el('set-alert-result'),
   updateState: el('set-update-state'),
@@ -49,6 +51,8 @@ const OWNED = [
   'hideChatOnSite',
   'clearChessOnEnd',
   'tidyOwnMessages',
+  'globalRoomEnabled',
+  'globalRoomSound',
 ];
 
 let onClose = () => {};
@@ -137,6 +141,9 @@ export function render(state) {
   ui.hideChatOnSite.checked = state.hideChatOnSite;
   ui.clearChess.checked = state.clearChessOnEnd;
   ui.tidyOwn.checked = state.tidyOwnMessages;
+  ui.globalRoom.checked = state.globalRoomEnabled;
+  ui.globalSound.checked = state.globalRoomSound;
+  ui.globalSound.disabled = !state.globalRoomEnabled;
 
   for (const swatch of ui.accent.children) {
     swatch.setAttribute('aria-pressed', String(swatch.dataset.accent === state.accent));
@@ -228,6 +235,12 @@ export function setup(options = {}) {
   );
   ui.tidyOwn.addEventListener('change', () =>
     write({ tidyOwnMessages: ui.tidyOwn.checked }),
+  );
+  ui.globalRoom.addEventListener('change', () =>
+    write({ globalRoomEnabled: ui.globalRoom.checked }),
+  );
+  ui.globalSound.addEventListener('change', () =>
+    write({ globalRoomSound: ui.globalSound.checked }),
   );
 
   // Picking a sound plays it immediately -- that is how you choose one.

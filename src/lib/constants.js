@@ -101,3 +101,19 @@ export const MOVE_COOLDOWN_MS = 60_000;
 
 /** How many of your own messages a room keeps when tidying is switched on. */
 export const KEEP_RECENT_MESSAGES = 20;
+
+/* ------------------------------ global room ----------------------------- */
+
+/**
+ * One room every copy of the extension shares, on a fixed program with a fixed
+ * id. It is found by its stamp like any other room, so it appears as soon as
+ * the anchor comment exists on that program.
+ */
+export const GLOBAL_ROOM = {
+  programId: '5512217463472128',
+  roomId: 'KANMGC',
+  title: 'Global Chat',
+};
+
+/** The global room keeps only this many messages, oldest deleted first. */
+export const GLOBAL_ROOM_LIMIT = 30;

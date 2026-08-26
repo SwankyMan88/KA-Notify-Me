@@ -46,6 +46,11 @@ export const DEFAULTS = {
   clearChessOnEnd: true,
   /** Keep only your most recent messages in a room, deleting the rest. */
   tidyOwnMessages: true,
+
+  /** The shared room everyone sees. On by default, but it can be switched off. */
+  globalRoomEnabled: true,
+  /** Global chat is busy, so it stays silent unless you ask for it. */
+  globalRoomSound: false,
   /** Clear the "new" flag when you open the popup, so nothing piles up. */
   autoMarkRead: true,
   /** Version the user pressed "Not now" on; cleared when a newer one lands. */
